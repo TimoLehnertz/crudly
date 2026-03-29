@@ -97,8 +97,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: BindRow<Sqlite>,
     {
         log("update_by_id");
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<S>(entity, executor)
-            .await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<S>(entity, executor).await
     }
 
     async fn delete_by_id<S>(

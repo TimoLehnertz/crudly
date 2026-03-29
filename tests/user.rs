@@ -157,7 +157,8 @@ where
         self,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<i64> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_returning_id::<Self>(self, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_returning_id::<Self>(self, executor)
+            .await
     }
 }
 

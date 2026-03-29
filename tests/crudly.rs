@@ -6,8 +6,8 @@ mod common;
 use common::mock_crud_executor::{self as mcx, MockCrudExecutor};
 use common::sqlite;
 use crudly::{Crudly, HasColumns, InsertReturningId, InsertWithId, IntoRow, Schema};
-use sqlx::sqlite::Sqlite;
 use sqlx::FromRow;
+use sqlx::sqlite::Sqlite;
 
 #[test]
 fn schema_table_inferred_plural_snake() {
