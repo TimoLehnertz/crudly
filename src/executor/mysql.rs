@@ -1,4 +1,4 @@
-use crate::crud_executor::{
+use crate::executor::{
     generic_delete_by_id, generic_insert_returning_id, generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
