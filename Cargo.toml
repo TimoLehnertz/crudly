@@ -23,7 +23,7 @@ json = ["sqlx/json", "crudly-macros/json"]
 
 [dependencies]
 sqlx = { version = "0.8.6", default-features = false }
-crudly-macros = { path = "crudly-macros", default-features = false }
+crudly-macros = { path = "crudly-macros", version = "0.1.0", default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
