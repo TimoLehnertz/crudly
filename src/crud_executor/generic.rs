@@ -138,7 +138,7 @@ where
         .map(|c| format!("\"{c}\""))
         .collect::<Vec<String>>()
         .join(",");
-    
+
     let placeholders = format_placeholders::<DB>(S::columns().len());
 
     let sql = format!("INSERT INTO {table_name} ({columns}) VALUES ({placeholders})");

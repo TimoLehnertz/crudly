@@ -2,14 +2,20 @@ use crudly::{
     BindRow, CRUDExecutor, Crudly, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
     HasColumns, InsertReturningId, InsertWithId, IntoRow, Schema,
 };
-use sqlx::sqlite::{Sqlite, SqliteArguments, SqlitePool};
+use serde::Serialize;
+use sqlx::sqlite::{Sqlite, SqlitePool};
 use sqlx::{Arguments, Database, Executor, FromRow};
-use sqlx::{Encode, IntoArguments, Type, query};
+use sqlx::{Encode, Type, query};
 
 #[derive(FromRow, Default)]
 pub struct Address {
     pub street: String,
     pub city: String,
+}
+
+#[derive(Serialize, Default)]
+pub struct JsonObject {
+    pub name: String,
 }
 
 #[derive(Default, FromRow)]
@@ -19,27 +25,36 @@ pub struct User {
     #[sqlx(flatten)]
     pub address: Address,
     pub email: String,
+    #[sqlx(json)]
+    pub json: JsonObject,
 }
 
-impl<'a> IntoRow<SqliteArguments<'a>> for User
+impl IntoRow<Sqlite> for User
 where
-    SqliteArguments<'a>: IntoArguments<'a, Sqlite>,
-    String: Encode<'a, Sqlite> + Type<Sqlite>,
+    for<'q> String: Encode<'q, Sqlite> + Type<Sqlite>,
 {
-    fn bind_arguments(self, arguments: &mut SqliteArguments<'a>) -> sqlx::Result<()> {
+    fn bind_arguments<'q>(
+        self,
+        arguments: &mut <Sqlite as Database>::Arguments<'q>,
+    ) -> sqlx::Result<()> {
         arguments.add(self.name).map_err(sqlx::Error::Encode)?;
         self.address.bind_arguments(arguments)?;
         arguments.add(self.email).map_err(sqlx::Error::Encode)?;
+        arguments
+            .add(sqlx::types::Json(self.json))
+            .map_err(sqlx::Error::Encode)?;
         Ok(())
     }
 }
 
-impl<'a> IntoRow<SqliteArguments<'a>> for Address
+impl IntoRow<Sqlite> for Address
 where
-    SqliteArguments<'a>: IntoArguments<'a, Sqlite>,
-    String: Encode<'a, Sqlite> + Type<Sqlite>,
+    for<'q> String: Encode<'q, Sqlite> + Type<Sqlite>,
 {
-    fn bind_arguments(self, arguments: &mut SqliteArguments<'a>) -> sqlx::Result<()> {
+    fn bind_arguments<'q>(
+        self,
+        arguments: &mut <Sqlite as Database>::Arguments<'q>,
+    ) -> sqlx::Result<()> {
         arguments.add(self.street).map_err(sqlx::Error::Encode)?;
         arguments.add(self.city).map_err(sqlx::Error::Encode)?;
         Ok(())
@@ -52,6 +67,7 @@ impl HasColumns for User {
         columns.push("name");
         columns.extend(Address::columns());
         columns.push("email");
+        columns.push("json");
         columns
     }
 }
@@ -168,7 +184,7 @@ async fn sqlite_memory_pool() -> SqlitePool {
         .await
         .unwrap();
 
-    query("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, street TEXT NOT NULL, city TEXT NOT NULL, email TEXT NOT NULL);")
+    query("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, street TEXT NOT NULL, city TEXT NOT NULL, email TEXT NOT NULL, json TEXT NOT NULL);")
     .execute(&pool).await.unwrap();
 
     pool

@@ -2,9 +2,9 @@ use crate::crud_executor::{
     generic_delete_by_id, generic_insert_returning_id, generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
-    CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId, FormatPlaceholder,
-    BindRow, LastInsertedRowId, RowsAffected, Schema, generic_id_exists, generic_select_all,
-    generic_select_by_id,
+    BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
+    FormatPlaceholder, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
+    generic_select_all, generic_select_by_id,
 };
 use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
 use sqlx::{Encode, Executor, FromRow, Sqlite, Type};

@@ -1,4 +1,6 @@
-use crate::crud_executor::{format_placeholders, generic_delete_by_id, generic_insert_with_id, generic_update_by_id};
+use crate::crud_executor::{
+    format_placeholders, generic_delete_by_id, generic_insert_with_id, generic_update_by_id,
+};
 use crate::{
     BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
     FormatPlaceholder, RowsAffected, Schema, generic_id_exists, generic_select_all,

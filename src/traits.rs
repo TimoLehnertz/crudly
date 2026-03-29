@@ -1,7 +1,7 @@
 use sqlx::{Database, Executor};
 
 /// Column list for a row mapping. Split out so callers can use `Self::columns()` unambiguously
-/// when [`IntoRow`] is implemented for many argument types (e.g. `DB::Arguments<'a>` per lifetime).
+/// when [`IntoRow`] is implemented for several [`Database`] types.
 pub trait HasColumns {
     /// The returned columns **must never** be empty!
     ///
@@ -10,23 +10,18 @@ pub trait HasColumns {
     fn columns() -> Vec<&'static str>;
 }
 
-/// Binds non-id values onto a concrete arguments buffer (e.g. [`Database::Arguments`]).
-///
-/// Generic over `A` so tests can implement this trait for a **mock** buffer and assert bind order
-/// without a database. With sqlx, implement for [`Database::Arguments<'a>`](Database::Arguments)
-/// per driver (e.g. [`sqlx::sqlite::SqliteArguments<'a>`]).
-///
-/// You generally **cannot** write `impl<'a, DB: Database> IntoRow<DB::Arguments<'a>> for MyType`
-/// (rustc [E0207]); use one impl per concrete database or a small macro that enumerates `DB`.
-pub trait IntoRow<A: ?Sized>: HasColumns {
+/// Binds non-id values onto an SQLx [`Arguments`] buffer for [`Database`] `DB`
+/// (`DB::Arguments<'q>`).
+pub trait IntoRow<DB: Database>: HasColumns {
     /// Binds values in the same order as [`HasColumns::columns`].
     /// Does **not** bind the id.
-    fn bind_arguments(self, arguments: &mut A) -> sqlx::Result<()>;
+    fn bind_arguments<'q>(self, arguments: &mut DB::Arguments<'q>) -> sqlx::Result<()>;
 }
 
 /// Describes how a rust struct maps to a database table.
 /// Currently requires that the corresponding table has
-/// a **single** primary key.
+/// a **single** primary key. This restriction might get
+/// lifted in the future.
 pub trait Schema<DB: Database>: HasColumns + Send {
     type Id: Clone + Send + Sync;
 
@@ -43,21 +38,13 @@ pub trait Schema<DB: Database>: HasColumns + Send {
     fn id(&self) -> Self::Id;
 }
 
-/// [`Schema`] plus binding into `DB::Arguments` for every lifetime (what insert/update need).
+/// [`Schema`] plus binding into `DB::Arguments` (what insert/update need).
 ///
-/// Plain [`Schema`] is enough for reads; rustc does not infer higher-ranked [`IntoRow`] from [`Schema`]
+/// Plain [`Schema`] is enough for reads; rustc does not infer [`IntoRow`] from [`Schema`]
 /// supertraits, so this trait encodes the combined bound explicitly.
-pub trait BindRow<DB: Database>:
-    Schema<DB> + for<'a> IntoRow<<DB as Database>::Arguments<'a>>
-{
-}
+pub trait BindRow<DB: Database>: Schema<DB> + IntoRow<DB> {}
 
-impl<T, DB: Database> BindRow<DB> for T
-where
-    T: Schema<DB>,
-    for<'a> T: IntoRow<<DB as Database>::Arguments<'a>>,
-{
-}
+impl<T, DB: Database> BindRow<DB> for T where T: Schema<DB> + IntoRow<DB> {}
 
 /// Marker trait that indicates that the id of an entity
 /// is assigned by the database using something like an
