@@ -334,14 +334,48 @@ fn try_target_is_string(ty: &Type) -> bool {
     last.ident == "String" && last.arguments.is_empty()
 }
 
+fn option_inner_type(ty: &Type) -> syn::Result<Type> {
+    let Type::Path(p) = ty else {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "`json(nullable)` requires field type `Option<T>`",
+        ));
+    };
+    let Some(last) = p.path.segments.last() else {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "`json(nullable)` requires field type `Option<T>`",
+        ));
+    };
+    if last.ident != "Option" {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "`json(nullable)` requires field type `Option<T>`",
+        ));
+    }
+    let syn::PathArguments::AngleBracketed(ab) = &last.arguments else {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "`json(nullable)` requires field type `Option<T>`",
+        ));
+    };
+    let Some(syn::GenericArgument::Type(inner)) = ab.args.first() else {
+        return Err(syn::Error::new_spanned(
+            ty,
+            "`json(nullable)` requires field type `Option<T>`",
+        ));
+    };
+    Ok(inner.clone())
+}
+
 fn add_field_encode_bounds(
     field: &Field,
     fa: &FieldAttrs,
     preds: &mut Vec<syn::WherePredicate>,
     seen: &mut BTreeSet<String>,
-) {
+) -> syn::Result<()> {
     if fa.skip || fa.flatten {
-        return;
+        return Ok(());
     }
     if let Some(u) = fa.try_from.as_ref().or(fa.try_into.as_ref()) {
         if try_target_is_string(u) {
@@ -360,16 +394,26 @@ fn add_field_encode_bounds(
                 parse_quote!(#u_ty: for<'q> ::sqlx::Encode<'q, __CrudlyDb> + ::sqlx::Type<__CrudlyDb>),
             );
         }
-        return;
+        return Ok(());
     }
-    if fa.json.is_some() {
-        let fty = field.ty.clone();
+    if let Some(json_attr) = fa.json {
+        let json_inner: Type = match json_attr {
+            JsonAttr::NonNullable => field.ty.clone(),
+            JsonAttr::Nullable => option_inner_type(&field.ty)?,
+        };
         push_pred_unique(
             preds,
             seen,
-            parse_quote!(::sqlx::types::Json<#fty>: for<'q> ::sqlx::Encode<'q, __CrudlyDb> + ::sqlx::Type<__CrudlyDb>),
+            parse_quote!(::sqlx::types::Json<#json_inner>: for<'q> ::sqlx::Encode<'q, __CrudlyDb> + ::sqlx::Type<__CrudlyDb>),
         );
-        return;
+        if matches!(json_attr, JsonAttr::Nullable) {
+            push_pred_unique(
+                preds,
+                seen,
+                parse_quote!(::std::option::Option<::sqlx::types::Json<#json_inner>>: for<'q> ::sqlx::Encode<'q, __CrudlyDb> + ::sqlx::Type<__CrudlyDb>),
+            );
+        }
+        return Ok(());
     }
     let fty = field.ty.clone();
     push_pred_unique(
@@ -377,6 +421,7 @@ fn add_field_encode_bounds(
         seen,
         parse_quote!(#fty: for<'q> ::sqlx::Encode<'q, __CrudlyDb> + ::sqlx::Type<__CrudlyDb>),
     );
+    Ok(())
 }
 
 fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStream> {
@@ -410,14 +455,35 @@ fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStr
         });
     }
 
-    let to_add = if attrs.json.is_some() {
-        quote! { ::sqlx::types::Json(#ident) }
-    } else {
-        quote! { #ident }
-    };
+    if let Some(json_attr) = attrs.json {
+        return Ok(match json_attr {
+            JsonAttr::NonNullable => quote! {
+                arguments
+                    .add(::sqlx::types::Json(#ident))
+                    .map_err(::sqlx::Error::Encode)?;
+            },
+            JsonAttr::Nullable => {
+                let inner_ty = option_inner_type(&field.ty)?;
+                quote! {
+                    match #ident {
+                        Some(__crudly_json_inner) => {
+                            arguments
+                                .add(::sqlx::types::Json(__crudly_json_inner))
+                                .map_err(::sqlx::Error::Encode)?;
+                        }
+                        None => {
+                            arguments
+                                .add(::std::option::Option::<::sqlx::types::Json<#inner_ty>>::None)
+                                .map_err(::sqlx::Error::Encode)?;
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     Ok(quote! {
-        arguments.add(#to_add).map_err(::sqlx::Error::Encode)?;
+        arguments.add(#ident).map_err(::sqlx::Error::Encode)?;
     })
 }
 
@@ -511,7 +577,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
 
     for (field, fa) in &parsed {
         bind_fragments.push(field_binding_expr(field, fa)?);
-        add_field_encode_bounds(field, fa, &mut preds, &mut pred_seen);
+        add_field_encode_bounds(field, fa, &mut preds, &mut pred_seen)?;
 
         if fa.skip {
             continue;
