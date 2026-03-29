@@ -19,17 +19,17 @@ pub struct DefaultCRUDExecutor<DB: Database> {
 }
 
 pub trait CRUDExecutor<DB: Database> {
-    /// Most likely sqlx::Result<()> But one could also use the
+    /// Most likely `sqlx::Result<()>` But one could also use the
     /// sql RETURNING clause to return the actual entity after it was inserted.
     type InsertWithIdResult;
 
-    /// Most likely sqlx::Result<bool> But one could also use the
+    /// Most likely `sqlx::Result<bool>` But one could also use the
     /// sql RETURNING clause to return the actual entity after it was updated.
     type UpdateByIdResult;
 
     /// The result type of the delete operation.
     ///
-    /// This could be sqlx::Result<()> or something else that additionally indicates if
+    /// This could be `sqlx::Result<()>` or something else that additionally indicates if
     /// the entity was indeed deleted or didn't exist in the first place.
     type DeleteByIdResult;
 

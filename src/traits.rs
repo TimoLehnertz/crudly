@@ -10,7 +10,7 @@ pub trait HasColumns {
     fn columns() -> Vec<&'static str>;
 }
 
-/// Binds non-id values onto an SQLx [`Arguments`] buffer for [`Database`] `DB`
+/// Binds non-id values onto an SQLx [`sqlx::Arguments`] buffer for [`Database`] `DB`
 /// (`DB::Arguments<'q>`).
 pub trait IntoRow<DB: Database>: HasColumns {
     /// Binds values in the same order as [`HasColumns::columns`].
@@ -59,13 +59,13 @@ pub trait ExternallyAssignedId {}
 pub trait Crudly<DB: Database>: Sized {
     type Id: Clone + Send + Sync;
 
-    /// Most likely sqlx::Result<bool> But one could also use the
+    /// Most likely `sqlx::Result<bool>` But one could also use the
     /// sql RETURNING clause to return the actual entity after it was updated.
     type UpdateByIdResult;
 
     /// The result type of the delete operation.
     ///
-    /// This could be sqlx::Result<()> or something else that additionally indicates if
+    /// This could be `sqlx::Result<()>` or something else that additionally indicates if
     /// the entity was indeed deleted or didn't exist in the first place.
     type DeleteByIdResult;
 
