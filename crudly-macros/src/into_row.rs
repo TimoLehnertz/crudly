@@ -198,7 +198,8 @@ pub(crate) fn parse_field_attrs(field: &Field) -> syn::Result<FieldAttrs> {
         ));
     }
     if let (Some(a), Some(b)) = (&merged.try_from, &merged.try_into) {
-        if a != b {
+        // Avoid syn's `extra-traits` (`PartialEq` for `Type`): stringify so this works with lean syn + minimal-versions
+        if a.to_token_stream().to_string() != b.to_token_stream().to_string() {
             return Err(syn::Error::new(
                 field.span(),
                 "`try_from` and `try_into` must refer to the same type when both are set",
