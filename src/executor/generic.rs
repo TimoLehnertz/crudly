@@ -1,8 +1,9 @@
-use crate::{BindRow, Schema};
-use sqlx::{
-    Arguments, Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as,
-    query_with,
-};
+use crate::Schema;
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
+use crate::BindRow;
+use sqlx::{Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as};
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
+use sqlx::{Arguments, query_with};
 
 /// There is a similar function here: [sqlx::Arguments::format_placeholder] but thats
 /// only really usable via the [sqlx::QueryBuilder] which is highly
@@ -23,6 +24,7 @@ pub trait LastInsertedRowId {
 
 /// # Returns
 /// A string of `n` placeholders separated by commas.
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
     (0..n)
         .map(|idx| DB::format_placeholder(idx))
@@ -98,6 +100,7 @@ where
         .map(|option| option.is_some())
 }
 
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub(super) async fn generic_insert_with_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
@@ -122,6 +125,7 @@ where
     Ok(())
 }
 
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub(super) async fn generic_insert_returning_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
@@ -154,6 +158,7 @@ where
 /// - Ok(true) if the entity was updated
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub(super) async fn generic_update_by_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
@@ -198,6 +203,7 @@ where
 /// - Ok(true) if the entity was deleted
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
+#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub(super) async fn generic_delete_by_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     id: &S::Id,
