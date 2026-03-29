@@ -1,3 +1,4 @@
+//! This file is a sandbox for testing what the derived code should look like.
 use crudly::{
     BindRow, CRUDExecutor, Crudly, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
     HasColumns, InsertReturningId, InsertWithId, IntoRow, Schema,

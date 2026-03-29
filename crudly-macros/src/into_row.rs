@@ -7,7 +7,8 @@ use syn::spanned::Spanned;
 use syn::{parenthesized, parse_quote, DeriveInput, Field, Ident, LitStr, Token, Type};
 
 #[derive(Copy, Clone)]
-enum RenameAll {
+#[allow(clippy::enum_variant_names)] // mirrors sqlx `rename_all` spellings (e.g. camelCase)
+pub(crate) enum RenameAll {
     LowerCase,
     SnakeCase,
     UpperCase,
@@ -53,17 +54,19 @@ enum JsonAttr {
     Nullable,
 }
 
-struct ContainerAttrs {
-    rename_all: Option<RenameAll>,
-    _container_default: bool,
+pub(crate) struct ContainerAttrs {
+    pub(crate) rename_all: Option<RenameAll>,
+    pub(crate) _container_default: bool,
 }
 
 #[derive(Clone)]
-struct FieldAttrs {
+pub(crate) struct FieldAttrs {
     rename: Option<String>,
     field_default: bool,
     flatten: bool,
     skip: bool,
+    /// Primary key field for `#[derive(Crudly)]`; omitted from `HasColumns` / bind like `skip`.
+    pub(crate) crudly_id: bool,
     try_from: Option<Type>,
     try_into: Option<Type>,
     json: Option<JsonAttr>,
@@ -77,6 +80,7 @@ impl FieldAttrs {
             field_default: false,
             flatten: false,
             skip: false,
+            crudly_id: false,
             try_from: None,
             try_into: None,
             json: None,
@@ -103,7 +107,11 @@ fn merge_field_key(
     Ok(())
 }
 
-fn parse_field_nested(attrs: &mut FieldAttrs, meta: syn::meta::ParseNestedMeta) -> syn::Result<()> {
+fn parse_field_nested(
+    attrs: &mut FieldAttrs,
+    meta: syn::meta::ParseNestedMeta,
+    allow_crudly_id: bool,
+) -> syn::Result<()> {
     let path = meta.path.clone();
     if meta.path.is_ident("rename") {
         meta.input.parse::<Token![=]>()?;
@@ -127,6 +135,20 @@ fn parse_field_nested(attrs: &mut FieldAttrs, meta: syn::meta::ParseNestedMeta) 
         merge_field_key(attrs, "flatten", path.span(), |a| a.flatten = true)?;
     } else if meta.path.is_ident("skip") {
         merge_field_key(attrs, "skip", path.span(), |a| a.skip = true)?;
+    } else if meta.path.is_ident("id") {
+        if !allow_crudly_id {
+            return Err(syn::Error::new_spanned(
+                &path,
+                "`id` on a field is only valid inside `#[crudly(id)]`, not `#[sqlx(...)]`",
+            ));
+        }
+        if meta.input.peek(Token![=]) {
+            return Err(syn::Error::new_spanned(
+                &path,
+                "use `#[crudly(id)]` without a value",
+            ));
+        }
+        merge_field_key(attrs, "id", path.span(), |a| a.crudly_id = true)?;
     } else if meta.path.is_ident("json") {
         let j = if meta.input.peek(syn::token::Paren) {
             let content;
@@ -146,20 +168,20 @@ fn parse_field_nested(attrs: &mut FieldAttrs, meta: syn::meta::ParseNestedMeta) 
     } else {
         return Err(syn::Error::new_spanned(
             path,
-            "unknown field attribute for `#[derive(IntoRow)]` (expected rename, default, flatten, skip, try_from, try_into, json)",
+            "unknown field attribute for `#[derive(IntoRow)]` (expected rename, default, flatten, skip, id, try_from, try_into, json)",
         ));
     }
     Ok(())
 }
 
-fn parse_field_attrs(field: &Field) -> syn::Result<FieldAttrs> {
+pub(crate) fn parse_field_attrs(field: &Field) -> syn::Result<FieldAttrs> {
     let mut merged = FieldAttrs::empty();
 
     for attr in &field.attrs {
         if attr.path().is_ident("sqlx") {
-            attr.parse_nested_meta(|m| parse_field_nested(&mut merged, m))?;
+            attr.parse_nested_meta(|m| parse_field_nested(&mut merged, m, false))?;
         } else if attr.path().is_ident("crudly") {
-            attr.parse_nested_meta(|m| parse_field_nested(&mut merged, m))?;
+            attr.parse_nested_meta(|m| parse_field_nested(&mut merged, m, true))?;
         }
     }
 
@@ -198,6 +220,25 @@ fn parse_field_attrs(field: &Field) -> syn::Result<FieldAttrs> {
         ));
     }
 
+    if merged.crudly_id && merged.skip {
+        return Err(syn::Error::new(
+            field.span(),
+            "`#[crudly(id)]` must not be combined with `skip` on the same field",
+        ));
+    }
+    if merged.crudly_id && merged.flatten {
+        return Err(syn::Error::new(
+            field.span(),
+            "`#[crudly(id)]` cannot be used on a flattened field",
+        ));
+    }
+    if merged.crudly_id && merged.json.is_some() {
+        return Err(syn::Error::new(
+            field.span(),
+            "`#[crudly(id)]` cannot be combined with `json` on the same field",
+        ));
+    }
+
     Ok(merged)
 }
 
@@ -217,7 +258,7 @@ fn merge_container_key(
     Ok(())
 }
 
-fn parse_container_attrs(input: &DeriveInput) -> syn::Result<ContainerAttrs> {
+pub(crate) fn parse_container_attrs(input: &DeriveInput) -> syn::Result<ContainerAttrs> {
     let mut seen = HashSet::new();
     let mut rename_all = None;
     let mut _container_default = false;
@@ -233,15 +274,14 @@ fn parse_container_attrs(input: &DeriveInput) -> syn::Result<ContainerAttrs> {
             } else if meta.path.is_ident("default") {
                 merge_container_key(&mut seen, "default", path.span())?;
                 _container_default = true;
-            } else if meta.path.is_ident("table")
-                || meta.path.is_ident("id")
-                || meta.path.is_ident("external_ids")
-                || meta.path.is_ident("executor")
-            {
-                return Err(syn::Error::new_spanned(
-                    &path,
-                    "`table`, `id`, `external_ids`, and `executor` are only valid on `#[derive(Crudly)]`",
-                ));
+            } else if meta.path.is_ident("table") {
+                meta.input.parse::<Token![=]>()?;
+                let _: LitStr = meta.input.parse()?;
+            } else if meta.path.is_ident("external_ids") || meta.path.is_ident("db_ids") {
+                // Crudly-only flags; ignored by IntoRow so both derives can share `#[crudly(...)]`.
+            } else if meta.path.is_ident("executor") {
+                meta.input.parse::<Token![=]>()?;
+                let _: Type = meta.input.parse()?;
             } else {
                 return Err(syn::Error::new_spanned(
                     &path,
@@ -293,7 +333,7 @@ fn parse_container_attrs(input: &DeriveInput) -> syn::Result<ContainerAttrs> {
     })
 }
 
-fn column_name_for_field(
+pub(crate) fn column_name_for_field(
     field: &Field,
     attrs: &FieldAttrs,
     rename_all: Option<RenameAll>,
@@ -374,7 +414,7 @@ fn add_field_encode_bounds(
     preds: &mut Vec<syn::WherePredicate>,
     seen: &mut BTreeSet<String>,
 ) -> syn::Result<()> {
-    if fa.skip || fa.flatten {
+    if fa.skip || fa.flatten || fa.crudly_id {
         return Ok(());
     }
     if let Some(u) = fa.try_from.as_ref().or(fa.try_into.as_ref()) {
@@ -427,7 +467,7 @@ fn add_field_encode_bounds(
 fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStream> {
     let ident = field.ident.as_ref().expect("named field");
 
-    if attrs.skip {
+    if attrs.skip || attrs.crudly_id {
         return Ok(quote! {});
     }
 
@@ -492,7 +532,7 @@ fn columns_tokens_for_field(
     attrs: &FieldAttrs,
     sql_name: &str,
 ) -> syn::Result<TokenStream> {
-    if attrs.skip {
+    if attrs.skip || attrs.crudly_id {
         return Ok(quote! {});
     }
     if attrs.flatten {
@@ -542,7 +582,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
 
     for field in &fields_named.named {
         let fa = parse_field_attrs(field)?;
-        if !fa.skip {
+        if fa.flatten || (!fa.skip && !fa.crudly_id) {
             saw_non_skip = true;
         }
         let sql_name = column_name_for_field(field, &fa, rename_all)?;
@@ -553,7 +593,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
     if !saw_non_skip {
         return Err(syn::Error::new(
             input.span(),
-            "`IntoRow` requires at least one field that is not `skip`",
+            "`IntoRow` requires at least one non-id field that participates in row columns (not `skip` or `#[crudly(id)]`)",
         ));
     }
 
@@ -579,7 +619,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         bind_fragments.push(field_binding_expr(field, fa)?);
         add_field_encode_bounds(field, fa, &mut preds, &mut pred_seen)?;
 
-        if fa.skip {
+        if fa.skip || fa.crudly_id {
             continue;
         }
         if fa.flatten {

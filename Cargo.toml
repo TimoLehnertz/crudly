@@ -16,15 +16,17 @@ authors = ["Timo Lehnertz <timolehnertz1@gmail.com>"]
 publish = true
 
 [features]
-default = []
+default = ["derive"]
+derive = ["dep:crudly-macros"]
 postgres = ["sqlx/postgres"]
 sqlite = ["sqlx/sqlite"]
 mysql = ["sqlx/mysql"]
+all-databases = ["postgres", "sqlite", "mysql"]
 json = ["sqlx/json", "crudly-macros/json"]
 
 [dependencies]
 sqlx = { version = "0.8.6", default-features = false }
-crudly-macros = { path = "crudly-macros", version = "0.1.0", default-features = false }
+crudly-macros = { path = "crudly-macros", version = "0.1.0", optional = true, default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
@@ -34,7 +36,7 @@ sqlx = { version = "0.8.6", default-features = false, features = [
     "sqlite",
     "json",
 ] }
-crudly = { path = ".", features = ["postgres", "sqlite", "mysql", "json"] }
+crudly = { path = ".", features = ["all-databases", "json"] }
 serde = "1"
 serde_json = "1"
 log = "0.4" # For mocking a DB

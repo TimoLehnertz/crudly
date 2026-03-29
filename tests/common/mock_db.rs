@@ -393,7 +393,7 @@ impl<'q> Encode<'q, MockDB> for String {
         &self,
         buf: &mut <MockDB as Database>::ArgumentBuffer<'q>,
     ) -> Result<IsNull, BoxDynError> {
-        buf.push(Some(format!("{self}")));
+        buf.push(Some(self.to_string()));
         Ok(IsNull::No)
     }
 }

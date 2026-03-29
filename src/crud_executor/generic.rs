@@ -54,12 +54,12 @@ where
     query_as(&sql).fetch_all(executor).await
 }
 
-pub async fn generic_select_by_id<S, DB: Database>(
+pub async fn generic_select_by_id<S, DB>(
     executor: impl Executor<'_, Database = DB>,
     id: &S::Id,
 ) -> sqlx::Result<Option<S>>
 where
-    DB: FormatPlaceholder,
+    DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -74,12 +74,12 @@ where
     query_as(&sql).bind(id).fetch_optional(executor).await
 }
 
-pub async fn generic_id_exists<S, DB: Database>(
+pub async fn generic_id_exists<S, DB>(
     executor: impl Executor<'_, Database = DB>,
     id: &S::Id,
 ) -> sqlx::Result<bool>
 where
-    DB: FormatPlaceholder,
+    DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -98,12 +98,12 @@ where
         .map(|option| option.is_some())
 }
 
-pub(super) async fn generic_insert_with_id<S, DB: Database>(
+pub(super) async fn generic_insert_with_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
 ) -> sqlx::Result<()>
 where
-    DB: FormatPlaceholder,
+    DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -122,13 +122,13 @@ where
     Ok(())
 }
 
-pub(super) async fn generic_insert_returning_id<S, DB: Database>(
+pub(super) async fn generic_insert_returning_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
 ) -> sqlx::Result<i64>
 where
+    DB: Database + FormatPlaceholder,
     DB::QueryResult: LastInsertedRowId,
-    DB: FormatPlaceholder,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
@@ -154,13 +154,13 @@ where
 /// - Ok(true) if the entity was updated
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
-pub(super) async fn generic_update_by_id<S, DB: Database>(
+pub(super) async fn generic_update_by_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
 ) -> sqlx::Result<bool>
 where
+    DB: Database + FormatPlaceholder,
     DB::QueryResult: RowsAffected,
-    DB: FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -198,13 +198,13 @@ where
 /// - Ok(true) if the entity was deleted
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
-pub(super) async fn generic_delete_by_id<S, DB: Database>(
+pub(super) async fn generic_delete_by_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     id: &S::Id,
 ) -> sqlx::Result<bool>
 where
+    DB: Database + FormatPlaceholder,
     DB::QueryResult: RowsAffected,
-    DB: FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,

@@ -1,0 +1,342 @@
+use std::collections::HashSet;
+
+use heck::ToSnakeCase;
+use proc_macro2::TokenStream;
+use quote::{quote, ToTokens};
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
+use syn::token::Comma;
+use syn::{parse_quote, Data, DeriveInput, Fields, LitStr, Type, WherePredicate};
+
+use crate::into_row;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum IdStrategy {
+    DbAssigned,
+    External,
+}
+
+struct CrudlyAttrs {
+    table: Option<String>,
+    id_strategy: IdStrategy,
+    executor: Option<Type>,
+}
+
+fn pluralize_ascii_identifier_base(snake_singular: &str) -> String {
+    if snake_singular.is_empty() {
+        return snake_singular.to_string();
+    }
+    let w = snake_singular;
+    let last = w.as_bytes()[w.len() - 1];
+    let penultimate_vowel = w.len() >= 2
+        && !matches!(w.as_bytes()[w.len() - 2], b'a' | b'e' | b'i' | b'o' | b'u' | b'y');
+    if last == b'y' && penultimate_vowel {
+        format!("{}ies", &w[..w.len() - 1])
+    } else if w.ends_with("ch")
+        || w.ends_with("sh")
+        || last == b's'
+        || last == b'x'
+        || last == b'z'
+    {
+        format!("{w}es")
+    } else {
+        format!("{w}s")
+    }
+}
+
+impl CrudlyAttrs {
+    fn parse(input: &DeriveInput) -> syn::Result<Self> {
+        let mut seen = HashSet::<&'static str>::new();
+        let mut table = None;
+        let mut db_ids = false;
+        let mut external_ids = false;
+        let mut executor = None::<Type>;
+
+        for attr in &input.attrs {
+            if !attr.path().is_ident("crudly") {
+                continue;
+            }
+            attr.parse_nested_meta(|meta| {
+                let path = meta.path.clone();
+
+                fn merge(seen: &mut HashSet<&'static str>, key: &'static str, span: proc_macro2::Span) -> syn::Result<()> {
+                    if !seen.insert(key) {
+                        return Err(syn::Error::new(
+                            span,
+                            format!("duplicate `#[crudly({key})]` on the same type"),
+                        ));
+                    }
+                    Ok(())
+                }
+
+                if meta.path.is_ident("table") {
+                    merge(&mut seen, "table", path.span())?;
+                    meta.input.parse::<syn::Token![=]>()?;
+                    let lit: LitStr = meta.input.parse()?;
+                    table = Some(lit.value());
+                } else if meta.path.is_ident("db_ids") {
+                    merge(&mut seen, "db_ids", path.span())?;
+                    db_ids = true;
+                } else if meta.path.is_ident("external_ids") {
+                    merge(&mut seen, "external_ids", path.span())?;
+                    external_ids = true;
+                } else if meta.path.is_ident("executor") {
+                    merge(&mut seen, "executor", path.span())?;
+                    meta.input.parse::<syn::Token![=]>()?;
+                    executor = Some(meta.input.parse()?);
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        path,
+                        "unknown `#[crudly(...)]` for Crudly (expected table, db_ids, external_ids, executor)",
+                    ));
+                }
+                Ok(())
+            })?;
+        }
+
+        if db_ids && external_ids {
+            return Err(syn::Error::new(
+                input.span(),
+                "`#[crudly(db_ids)]` and `#[crudly(external_ids)]` are mutually exclusive",
+            ));
+        }
+
+        let id_strategy = if external_ids {
+            IdStrategy::External
+        } else {
+            IdStrategy::DbAssigned
+        };
+
+        Ok(CrudlyAttrs {
+            table,
+            id_strategy,
+            executor,
+        })
+    }
+}
+
+pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
+    let attrs = CrudlyAttrs::parse(&input)?;
+    let container = into_row::parse_container_attrs(&input)?;
+    let rename_all = container.rename_all;
+    let ident = &input.ident;
+
+    let data_struct = match &input.data {
+        Data::Struct(ds) => ds,
+        Data::Enum(e) => {
+            return Err(syn::Error::new(
+                e.enum_token.span,
+                "`Crudly` derive is only supported on structs with named fields (not enums)",
+            ));
+        }
+        Data::Union(u) => {
+            return Err(syn::Error::new(
+                u.union_token.span,
+                "`Crudly` derive is only supported on structs with named fields (not unions)",
+            ));
+        }
+    };
+
+    let fields_named = match &data_struct.fields {
+        Fields::Named(n) => n,
+        _ => {
+            return Err(syn::Error::new(
+                data_struct.fields.span(),
+                "`Crudly` derive requires a struct with named fields",
+            ));
+        }
+    };
+
+    let mut id_marked: Vec<(&syn::Field, into_row::FieldAttrs)> = Vec::new();
+    for field in &fields_named.named {
+        let fa = into_row::parse_field_attrs(field)?;
+        if fa.crudly_id {
+            id_marked.push((field, fa));
+        }
+    }
+    let (id_field, id_fa) = match id_marked.len() {
+        0 => {
+            return Err(syn::Error::new(
+                input.span(),
+                "`#[derive(Crudly)]` requires exactly one field marked with `#[crudly(id)]`",
+            ));
+        }
+        1 => (&id_marked[0].0, &id_marked[0].1),
+        _ => {
+            return Err(syn::Error::new(
+                input.span(),
+                "`#[derive(Crudly)]` may only mark one field with `#[crudly(id)]`",
+            ));
+        }
+    };
+    let id_ident = id_field.ident.as_ref().unwrap();
+    let id_ty = &id_field.ty;
+    let id_column_lit = into_row::column_name_for_field(id_field, id_fa, rename_all)?;
+
+    let table_str = match &attrs.table {
+        Some(t) => t.clone(),
+        None => pluralize_ascii_identifier_base(&ident.to_string().to_snake_case()),
+    };
+    let table_lit = table_str;
+
+    let db_ty: TokenStream = quote!(__CrudlyDb);
+
+    let exec_ty: TokenStream = match &attrs.executor {
+        None => quote!(::crudly::DefaultCRUDExecutor<__CrudlyDb>),
+        Some(ty) => ty.to_token_stream(),
+    };
+
+    let mut impl_generics = input.generics.clone();
+    impl_generics
+        .params
+        .insert(0, parse_quote!(__CrudlyDb: ::sqlx::Database));
+    let (impl_gen, _, _) = impl_generics.split_for_impl();
+
+    let (struct_impl_gen, struct_ty_gen, struct_wc_opt) = input.generics.split_for_impl();
+    let struct_schema_where = struct_wc_opt.map(|w| quote!(#w)).unwrap_or_else(|| quote!());
+    let struct_wc_tokens = struct_schema_where.clone();
+
+    let extend_where =
+        |extra: Vec<WherePredicate>| -> syn::Result<TokenStream> {
+            let mut preds: Punctuated<WherePredicate, Comma> = Punctuated::new();
+            if let Some(w) = &input.generics.where_clause {
+                for p in w.predicates.iter() {
+                    preds.push(p.clone());
+                }
+            }
+            for p in extra {
+                preds.push(p);
+            }
+            Ok(quote!(where #preds))
+        };
+
+    let insert_exec_pred: WherePredicate =
+        syn::parse2(quote!(#exec_ty: ::crudly::CRUDExecutor<__CrudlyDb>))?;
+
+    let crudly_preds: Vec<WherePredicate> = vec![
+        parse_quote!(Self: ::crudly::Schema<#db_ty> + ::crudly::BindRow<#db_ty>),
+        insert_exec_pred.clone(),
+        parse_quote!(Self: for<'r> ::sqlx::FromRow<'r, <#db_ty as ::sqlx::Database>::Row>),
+        parse_quote!(for<'q> <Self as ::crudly::Schema<#db_ty>>::Id: ::sqlx::Encode<'q, #db_ty> + ::sqlx::Type<#db_ty>),
+    ];
+    let crudly_where = extend_where(crudly_preds)?;
+
+    let marker_impl = match attrs.id_strategy {
+        IdStrategy::DbAssigned => quote! {
+            impl #struct_impl_gen ::crudly::DBAssignedId for #ident #struct_ty_gen #struct_wc_tokens {}
+        },
+        IdStrategy::External => quote! {
+            impl #struct_impl_gen ::crudly::ExternallyAssignedId for #ident #struct_ty_gen #struct_wc_tokens {}
+        },
+    };
+
+    let insert_impl = match attrs.id_strategy {
+        IdStrategy::DbAssigned => {
+            let insert_where = extend_where(vec![
+                parse_quote!(Self: ::crudly::Schema<#db_ty> + ::crudly::BindRow<#db_ty>),
+                insert_exec_pred.clone(),
+                parse_quote!(Self: ::crudly::DBAssignedId),
+            ])?;
+            quote! {
+                impl #impl_gen ::crudly::InsertReturningId<#db_ty> for #ident #struct_ty_gen
+                #insert_where
+                {
+                    async fn insert_returning_id(
+                        self,
+                        executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+                    ) -> ::sqlx::Result<i64> {
+                        <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self>(self, executor).await
+                    }
+                }
+            }
+        }
+        IdStrategy::External => {
+            let insert_where = extend_where(vec![
+                parse_quote!(<Self as ::crudly::Schema<#db_ty>>::Id: ::sqlx::Type<#db_ty>),
+                parse_quote!(for<'q> <Self as ::crudly::Schema<#db_ty>>::Id: ::sqlx::Encode<'q, #db_ty>),
+                parse_quote!(Self: ::crudly::Schema<#db_ty> + ::crudly::BindRow<#db_ty>),
+                insert_exec_pred,
+                parse_quote!(Self: ::crudly::ExternallyAssignedId),
+            ])?;
+            quote! {
+                impl #impl_gen ::crudly::InsertWithId<#db_ty> for #ident #struct_ty_gen
+                #insert_where
+                {
+                    type Result = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertWithIdResult;
+
+                    async fn insert_with_id(
+                        self,
+                        executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+                    ) -> Self::Result {
+                        <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self>(self, executor).await
+                    }
+                }
+            }
+        }
+    };
+
+    Ok(quote! {
+        impl #impl_gen ::crudly::Schema<#db_ty> for #ident #struct_ty_gen #struct_schema_where
+        {
+            type Id = #id_ty;
+
+            fn table_name() -> &'static str {
+                #table_lit
+            }
+
+            fn id_column() -> &'static str {
+                #id_column_lit
+            }
+
+            fn id(&self) -> Self::Id {
+                self.#id_ident.clone()
+            }
+        }
+
+        #marker_impl
+
+        impl #impl_gen ::crudly::Crudly<#db_ty> for #ident #struct_ty_gen
+        #crudly_where
+        {
+            type Id = <Self as ::crudly::Schema<#db_ty>>::Id;
+            type UpdateByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::UpdateByIdResult;
+            type DeleteByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::DeleteByIdResult;
+
+            async fn find_all(
+                executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+            ) -> ::sqlx::Result<::std::vec::Vec<Self>> {
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::find_all::<Self>(executor).await
+            }
+
+            async fn delete_by_id(
+                id: &Self::Id,
+                executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+            ) -> Self::DeleteByIdResult {
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::delete_by_id::<Self>(id, executor).await
+            }
+
+            async fn id_exists(
+                id: &Self::Id,
+                executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+            ) -> ::sqlx::Result<bool> {
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::id_exists::<Self>(id, executor).await
+            }
+
+            async fn select_by_id(
+                id: &Self::Id,
+                executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+            ) -> ::sqlx::Result<::std::option::Option<Self>> {
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_by_id::<Self>(id, executor).await
+            }
+
+            async fn update_by_id(
+                entity: Self,
+                executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
+            ) -> Self::UpdateByIdResult {
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self>(entity, executor).await
+            }
+        }
+
+        #insert_impl
+    })
+}
