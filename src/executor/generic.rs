@@ -1,9 +1,9 @@
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 use crate::BindRow;
 use crate::Schema;
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
-use sqlx::{Arguments, query_with};
-use sqlx::{Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as};
+use sqlx::{
+    Arguments, Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as,
+    query_with,
+};
 
 /// There is a similar function here: [sqlx::Arguments::format_placeholder] but thats
 /// only really usable via the [sqlx::QueryBuilder] which is highly
@@ -24,7 +24,6 @@ pub trait LastInsertedRowId {
 
 /// # Returns
 /// A string of `n` placeholders separated by commas.
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
     (0..n)
         .map(|idx| DB::format_placeholder(idx))
