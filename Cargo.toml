@@ -11,7 +11,7 @@ repository = "https://github.com/TimoLehnertz/crudly"
 readme = "README.md"
 keywords = ["sqlx", "crud", "derive", "macro", "intorow"]
 categories = ["database"]
-rust-version = "1.86.0"
+rust-version = "1.85.0"
 authors = ["Timo Lehnertz <timolehnertz1@gmail.com>"]
 publish = true
 

@@ -14,6 +14,9 @@
 //! - `sqlite`: Enables default crud implementations for sqlite
 //! - `all-databases`: Enables default crud implementations all DBs above.
 //! - `json`: Enables support for the `#[sqlx(json)]` / `#[crudly(json)]` attribute using [serde](https://crates.io/crates/serde).
+//! 
+//! ## MSRV
+//! The minimum supported Rust version is 1.85.0 (the version that released edition 2024).
 
 mod executor;
 mod traits;
