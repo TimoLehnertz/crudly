@@ -13,8 +13,8 @@ use sqlx::encode::{Encode, IsNull};
 use sqlx::error::BoxDynError;
 use sqlx::types::{Json, Type};
 use sqlx::{
-    Arguments, Column, ColumnIndex, ConnectOptions, Connection, Database, Either, Error, IntoArguments,
-    Row, Statement, Transaction, TransactionManager, TypeInfo, Value, ValueRef,
+    Arguments, Column, ColumnIndex, ConnectOptions, Connection, Database, Either, Error,
+    IntoArguments, Row, Statement, Transaction, TransactionManager, TypeInfo, Value, ValueRef,
 };
 use url::Url;
 
@@ -46,11 +46,7 @@ impl ConnectOptions for MockConnectOptions {
         unimplemented!()
     }
 
-    fn log_slow_statements(
-        self,
-        _level: log::LevelFilter,
-        _duration: std::time::Duration,
-    ) -> Self {
+    fn log_slow_statements(self, _level: log::LevelFilter, _duration: std::time::Duration) -> Self {
         unimplemented!()
     }
 }
@@ -74,9 +70,7 @@ impl Connection for MockConnection {
         Box::pin(async move { unimplemented!() })
     }
 
-    fn begin(
-        &mut self,
-    ) -> BoxFuture<'_, Result<Transaction<'_, Self::Database>, Error>> {
+    fn begin(&mut self) -> BoxFuture<'_, Result<Transaction<'_, Self::Database>, Error>> {
         Box::pin(async move { unimplemented!() })
     }
 
@@ -106,11 +100,15 @@ impl TransactionManager for MockTransactionManager {
         Box::pin(async move { unimplemented!() })
     }
 
-    fn commit(_conn: &mut <Self::Database as Database>::Connection) -> BoxFuture<'_, Result<(), Error>> {
+    fn commit(
+        _conn: &mut <Self::Database as Database>::Connection,
+    ) -> BoxFuture<'_, Result<(), Error>> {
         Box::pin(async move { unimplemented!() })
     }
 
-    fn rollback(_conn: &mut <Self::Database as Database>::Connection) -> BoxFuture<'_, Result<(), Error>> {
+    fn rollback(
+        _conn: &mut <Self::Database as Database>::Connection,
+    ) -> BoxFuture<'_, Result<(), Error>> {
         Box::pin(async move { unimplemented!() })
     }
 
@@ -305,7 +303,9 @@ impl<'q> Statement<'q> for MockStatement<'q> {
         unimplemented!()
     }
 
-    fn query(&self) -> sqlx::query::Query<'_, Self::Database, <Self::Database as Database>::Arguments<'_>> {
+    fn query(
+        &self,
+    ) -> sqlx::query::Query<'_, Self::Database, <Self::Database as Database>::Arguments<'_>> {
         unimplemented!()
     }
 
@@ -318,12 +318,7 @@ impl<'q> Statement<'q> for MockStatement<'q> {
 
     fn query_as<O>(
         &self,
-    ) -> sqlx::query::QueryAs<
-        '_,
-        Self::Database,
-        O,
-        <Self::Database as Database>::Arguments<'_>,
-    >
+    ) -> sqlx::query::QueryAs<'_, Self::Database, O, <Self::Database as Database>::Arguments<'_>>
     where
         O: for<'r> sqlx::FromRow<'r, <Self::Database as Database>::Row>,
     {
@@ -343,12 +338,7 @@ impl<'q> Statement<'q> for MockStatement<'q> {
 
     fn query_scalar<O>(
         &self,
-    ) -> sqlx::query::QueryScalar<
-        '_,
-        Self::Database,
-        O,
-        <Self::Database as Database>::Arguments<'_>,
-    >
+    ) -> sqlx::query::QueryScalar<'_, Self::Database, O, <Self::Database as Database>::Arguments<'_>>
     where
         (O,): for<'r> sqlx::FromRow<'r, <Self::Database as Database>::Row>,
     {

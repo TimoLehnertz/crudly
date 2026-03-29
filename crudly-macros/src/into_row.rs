@@ -2,9 +2,9 @@ use std::collections::{BTreeSet, HashSet};
 
 use heck::{ToKebabCase, ToLowerCamelCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::spanned::Spanned;
-use syn::{parenthesized, parse_quote, DeriveInput, Field, Ident, LitStr, Token, Type};
+use syn::{DeriveInput, Field, Ident, LitStr, Token, Type, parenthesized, parse_quote};
 
 #[derive(Copy, Clone)]
 #[allow(clippy::enum_variant_names)] // mirrors sqlx `rename_all` spellings (e.g. camelCase)

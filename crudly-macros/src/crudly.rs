@@ -2,11 +2,11 @@ use std::collections::HashSet;
 
 use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{parse_quote, Data, DeriveInput, Fields, LitStr, Type, WherePredicate};
+use syn::{Data, DeriveInput, Fields, LitStr, Type, WherePredicate, parse_quote};
 
 use crate::into_row;
 
@@ -29,14 +29,13 @@ fn pluralize_ascii_identifier_base(snake_singular: &str) -> String {
     let w = snake_singular;
     let last = w.as_bytes()[w.len() - 1];
     let penultimate_vowel = w.len() >= 2
-        && !matches!(w.as_bytes()[w.len() - 2], b'a' | b'e' | b'i' | b'o' | b'u' | b'y');
+        && !matches!(
+            w.as_bytes()[w.len() - 2],
+            b'a' | b'e' | b'i' | b'o' | b'u' | b'y'
+        );
     if last == b'y' && penultimate_vowel {
         format!("{}ies", &w[..w.len() - 1])
-    } else if w.ends_with("ch")
-        || w.ends_with("sh")
-        || last == b's'
-        || last == b'x'
-        || last == b'z'
+    } else if w.ends_with("ch") || w.ends_with("sh") || last == b's' || last == b'x' || last == b'z'
     {
         format!("{w}es")
     } else {
@@ -193,22 +192,23 @@ pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
     let (impl_gen, _, _) = impl_generics.split_for_impl();
 
     let (struct_impl_gen, struct_ty_gen, struct_wc_opt) = input.generics.split_for_impl();
-    let struct_schema_where = struct_wc_opt.map(|w| quote!(#w)).unwrap_or_else(|| quote!());
+    let struct_schema_where = struct_wc_opt
+        .map(|w| quote!(#w))
+        .unwrap_or_else(|| quote!());
     let struct_wc_tokens = struct_schema_where.clone();
 
-    let extend_where =
-        |extra: Vec<WherePredicate>| -> syn::Result<TokenStream> {
-            let mut preds: Punctuated<WherePredicate, Comma> = Punctuated::new();
-            if let Some(w) = &input.generics.where_clause {
-                for p in w.predicates.iter() {
-                    preds.push(p.clone());
-                }
+    let extend_where = |extra: Vec<WherePredicate>| -> syn::Result<TokenStream> {
+        let mut preds: Punctuated<WherePredicate, Comma> = Punctuated::new();
+        if let Some(w) = &input.generics.where_clause {
+            for p in w.predicates.iter() {
+                preds.push(p.clone());
             }
-            for p in extra {
-                preds.push(p);
-            }
-            Ok(quote!(where #preds))
-        };
+        }
+        for p in extra {
+            preds.push(p);
+        }
+        Ok(quote!(where #preds))
+    };
 
     let insert_exec_pred: WherePredicate =
         syn::parse2(quote!(#exec_ty: ::crudly::CRUDExecutor<__CrudlyDb>))?;

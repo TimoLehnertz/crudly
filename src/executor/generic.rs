@@ -1,9 +1,9 @@
-use crate::Schema;
 #[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 use crate::BindRow;
-use sqlx::{Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as};
+use crate::Schema;
 #[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
 use sqlx::{Arguments, query_with};
+use sqlx::{Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as};
 
 /// There is a similar function here: [sqlx::Arguments::format_placeholder] but thats
 /// only really usable via the [sqlx::QueryBuilder] which is highly
