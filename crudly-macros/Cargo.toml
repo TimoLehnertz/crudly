@@ -19,7 +19,7 @@ default = []
 json = []
 
 [dependencies]
-syn = { version = "2.0", features = ["full", "extra-traits"] } # Todo: strip features
+syn = { version = "2.0", default-features = false, features = ["derive", "parsing", "printing", "proc-macro"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 heck = "0.5"
