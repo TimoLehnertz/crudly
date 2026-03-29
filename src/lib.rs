@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! # Crudly
 //! Derivable crud helpers for sqlx. Write your SELECT, INSERT, UPDATE, and DELETE queries once and reuse them for all your entities.
 //!
