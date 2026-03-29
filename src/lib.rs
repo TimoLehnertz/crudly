@@ -125,14 +125,14 @@
 //!
 //! By default crudly will assume that the id is assigned by the database. If you want to assign the id inside of
 //! rust instead, use `#[crudly(external_ids)]` on the struct. See the
-//! [external_ids example](https://docs.rs/crudly/latest/crudly/example.external_ids/index.html).
+//! [external_ids example](https://docs.rs/crate/crudly/latest/source/examples/external_ids.rs).
 //!
 //! ## Executors
 //!
 //! Crudly provides default implementations for performing the crud operations for sqlite, mysql and postgres.
 //! However you might want to customize their behavior. Add some logging, return a custom error type or even add another Database.
 //! For this purpose crudly provides the `CRUDExecutor` trait. By default crudly will use the `DefaultCRUDExecutor` struct for all crud operations.
-//! you can overwrite this by using the `#[crudly(executor = ...)]` attribute. See the [executor example](https://docs.rs/crudly/latest/crudly/example.custom_executor/index.html) for more details.
+//! you can overwrite this by using the `#[crudly(executor = ...)]` attribute. See the [executor example](https://docs.rs/crate/crudly/latest/source/examples/custom_executor.rs) for more details.
 //!
 //! ```
 //! # #[allow(unused_variables)]

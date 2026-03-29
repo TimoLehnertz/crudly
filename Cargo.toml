@@ -3,7 +3,7 @@ members = [".", "crudly-macros"]
 
 [package]
 name = "crudly"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Derivable crud helpers for sqlx. Write your SELECT, INSERT, UPDATE and DELETE queries once and reuse them for all your entities."
