@@ -100,8 +100,7 @@ where
         .map(|option| option.is_some())
 }
 
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
-pub(super) async fn generic_insert_with_id<S, DB>(
+pub async fn generic_insert_with_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
 ) -> sqlx::Result<()>
@@ -125,8 +124,7 @@ where
     Ok(())
 }
 
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
-pub(super) async fn generic_insert_returning_id<S, DB>(
+pub async fn generic_insert_returning_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
 ) -> sqlx::Result<i64>
@@ -158,8 +156,7 @@ where
 /// - Ok(true) if the entity was updated
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
-pub(super) async fn generic_update_by_id<S, DB>(
+pub async fn generic_update_by_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     entity: S,
 ) -> sqlx::Result<bool>
@@ -203,8 +200,7 @@ where
 /// - Ok(true) if the entity was deleted
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
-#[cfg(any(feature = "postgres", feature = "mysql", feature = "sqlite"))]
-pub(super) async fn generic_delete_by_id<S, DB>(
+pub async fn generic_delete_by_id<S, DB>(
     executor: impl for<'e> Executor<'e, Database = DB>,
     id: &S::Id,
 ) -> sqlx::Result<bool>

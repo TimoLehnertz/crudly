@@ -31,14 +31,14 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
 
-    async fn find_all<S>(
+    async fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<Vec<S>>
     where
         S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
     {
-        log("find_all");
-        DefaultCRUDExecutor::<Sqlite>::find_all(executor).await
+        log("select_all");
+        DefaultCRUDExecutor::select_all(executor).await
     }
 
     async fn select_by_id<S>(
@@ -50,7 +50,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
     {
         log("select_by_id");
-        DefaultCRUDExecutor::<Sqlite>::select_by_id(id, executor).await
+        DefaultCRUDExecutor::select_by_id(id, executor).await
     }
 
     async fn id_exists<S>(
@@ -62,7 +62,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: Schema<Sqlite>,
     {
         log("id_exists");
-        <DefaultCRUDExecutor<Sqlite> as CRUDExecutor<Sqlite>>::id_exists::<S>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::id_exists::<S>(id, executor).await
     }
 
     async fn insert_with_id<S>(
@@ -74,7 +74,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: BindRow<Sqlite> + ExternallyAssignedId,
     {
         log("insert_with_id");
-        DefaultCRUDExecutor::<Sqlite>::insert_with_id(entity, executor).await
+        DefaultCRUDExecutor::insert_with_id(entity, executor).await
     }
 
     async fn insert_returning_id<S>(
@@ -85,7 +85,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: BindRow<Sqlite> + DBAssignedId,
     {
         log("insert_returning_id");
-        DefaultCRUDExecutor::<Sqlite>::insert_returning_id(entity, executor).await
+        DefaultCRUDExecutor::insert_returning_id(entity, executor).await
     }
 
     async fn update_by_id<S>(
@@ -97,7 +97,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: BindRow<Sqlite>,
     {
         log("update_by_id");
-        <DefaultCRUDExecutor<Sqlite> as CRUDExecutor<Sqlite>>::update_by_id::<S>(entity, executor)
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<S>(entity, executor)
             .await
     }
 
@@ -110,6 +110,6 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         S: Schema<Sqlite>,
     {
         log("delete_by_id");
-        <DefaultCRUDExecutor<Sqlite> as CRUDExecutor<Sqlite>>::delete_by_id::<S>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::delete_by_id::<S>(id, executor).await
     }
 }

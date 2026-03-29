@@ -181,7 +181,7 @@ pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
     let db_ty: TokenStream = quote!(__CrudlyDb);
 
     let exec_ty: TokenStream = match &attrs.executor {
-        None => quote!(::crudly::DefaultCRUDExecutor<__CrudlyDb>),
+        None => quote!(::crudly::DefaultCRUDExecutor),
         Some(ty) => ty.to_token_stream(),
     };
 
@@ -302,10 +302,10 @@ pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
             type UpdateByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::UpdateByIdResult;
             type DeleteByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::DeleteByIdResult;
 
-            async fn find_all(
+            async fn select_all(
                 executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
             ) -> ::sqlx::Result<::std::vec::Vec<Self>> {
-                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::find_all::<Self>(executor).await
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_all::<Self>(executor).await
             }
 
             async fn delete_by_id(
@@ -330,10 +330,10 @@ pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
             }
 
             async fn update_by_id(
-                entity: Self,
+                self,
                 executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
             ) -> Self::UpdateByIdResult {
-                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self>(entity, executor).await
+                <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self>(self, executor).await
             }
         }
 

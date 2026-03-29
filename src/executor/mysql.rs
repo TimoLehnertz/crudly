@@ -28,12 +28,12 @@ impl LastInsertedRowId for MySqlQueryResult {
     }
 }
 
-impl CRUDExecutor<MySql> for DefaultCRUDExecutor<MySql> {
+impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
     type InsertWithIdResult = sqlx::Result<()>;
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
 
-    async fn find_all<S>(
+    async fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = MySql>,
     ) -> sqlx::Result<Vec<S>>
     where

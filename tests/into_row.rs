@@ -1,7 +1,6 @@
 use common::mock_db::{MockArguments, MockDB};
 use crudly::{HasColumns, IntoRow};
 use serde::Serialize;
-use sqlx::Arguments;
 use sqlx::types::Json;
 
 mod common;

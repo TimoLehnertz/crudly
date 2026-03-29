@@ -659,6 +659,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
                 self,
                 arguments: &mut <__CrudlyDb as ::sqlx::Database>::Arguments<'q>,
             ) -> ::sqlx::Result<()> {
+                use ::sqlx::Arguments as _;
                 let Self { #(#all_idents),* } = self;
                 #(#bind_fragments)*
                 Ok(())

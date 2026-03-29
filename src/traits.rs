@@ -69,7 +69,7 @@ pub trait Crudly<DB: Database>: Sized {
     /// the entity was indeed deleted or didn't exist in the first place.
     type DeleteByIdResult;
 
-    fn find_all(
+    fn select_all(
         executor: impl for<'e> Executor<'e, Database = DB>,
     ) -> impl Future<Output = sqlx::Result<Vec<Self>>>;
 
@@ -84,7 +84,7 @@ pub trait Crudly<DB: Database>: Sized {
     ) -> impl Future<Output = sqlx::Result<bool>>;
 
     fn update_by_id(
-        entity: Self,
+        self,
         executor: impl for<'e> Executor<'e, Database = DB>,
     ) -> impl Future<Output = Self::UpdateByIdResult>;
 
@@ -92,6 +92,10 @@ pub trait Crudly<DB: Database>: Sized {
         id: &Self::Id,
         executor: impl for<'e> Executor<'e, Database = DB>,
     ) -> impl Future<Output = Self::DeleteByIdResult>;
+
+    // fn delete(self, executor: impl for<'e> Executor<'e, Database = DB>) -> impl Future<Output = Self::DeleteByIdResult> {
+    //     Self::delete_by_id(&self.id(), executor)
+    // }
 }
 
 pub trait InsertReturningId<DB: Database> {

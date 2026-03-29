@@ -1,7 +1,6 @@
 use crate::{BindRow, DBAssignedId, ExternallyAssignedId, Schema};
 use sqlx::{Database, Encode, Executor, FromRow, Type};
 use std::future::Future;
-use std::marker::PhantomData;
 
 mod generic;
 
@@ -14,9 +13,7 @@ mod sqlite;
 
 pub use generic::*;
 
-pub struct DefaultCRUDExecutor<DB: Database> {
-    _db: PhantomData<DB>,
-}
+pub struct DefaultCRUDExecutor;
 
 pub trait CRUDExecutor<DB: Database> {
     /// Most likely `sqlx::Result<()>` But one could also use the
@@ -33,7 +30,7 @@ pub trait CRUDExecutor<DB: Database> {
     /// the entity was indeed deleted or didn't exist in the first place.
     type DeleteByIdResult;
 
-    fn find_all<S>(
+    fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = DB>,
     ) -> impl Future<Output = sqlx::Result<Vec<S>>>
     where

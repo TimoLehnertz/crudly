@@ -105,59 +105,59 @@ impl ExternallyAssignedId for User {}
 impl Crudly<Sqlite> for User
 where
     User: Schema<Sqlite> + BindRow<Sqlite>,
-    DefaultCRUDExecutor<Sqlite>: CRUDExecutor<Sqlite>,
+    DefaultCRUDExecutor: CRUDExecutor<Sqlite>,
     Self: for<'r> FromRow<'r, sqlx::sqlite::SqliteRow>,
     for<'q> <User as Schema<Sqlite>>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     type Id = <Self as Schema<Sqlite>>::Id;
-    type UpdateByIdResult = <DefaultCRUDExecutor<Sqlite> as CRUDExecutor<Sqlite>>::UpdateByIdResult;
-    type DeleteByIdResult = <DefaultCRUDExecutor<Sqlite> as CRUDExecutor<Sqlite>>::DeleteByIdResult;
+    type UpdateByIdResult = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::UpdateByIdResult;
+    type DeleteByIdResult = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::DeleteByIdResult;
 
-    async fn find_all(
+    async fn select_all(
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<Vec<Self>> {
-        DefaultCRUDExecutor::<Sqlite>::find_all::<Self>(executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::select_all::<Self>(executor).await
     }
 
     async fn delete_by_id(
         id: &Self::Id,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> Self::DeleteByIdResult {
-        DefaultCRUDExecutor::<Sqlite>::delete_by_id::<Self>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::delete_by_id::<Self>(id, executor).await
     }
 
     async fn id_exists(
         id: &Self::Id,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<bool> {
-        DefaultCRUDExecutor::<Sqlite>::id_exists::<Self>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::id_exists::<Self>(id, executor).await
     }
 
     async fn select_by_id(
         id: &Self::Id,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<Option<Self>> {
-        DefaultCRUDExecutor::<Sqlite>::select_by_id::<Self>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::select_by_id::<Self>(id, executor).await
     }
 
     async fn update_by_id(
-        entity: Self,
+        self,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> Self::UpdateByIdResult {
-        DefaultCRUDExecutor::<Sqlite>::update_by_id::<Self>(entity, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<Self>(self, executor).await
     }
 }
 
 impl InsertReturningId<Sqlite> for User
 where
     User: Schema<Sqlite> + BindRow<Sqlite>,
-    DefaultCRUDExecutor<Sqlite>: CRUDExecutor<Sqlite>,
+    DefaultCRUDExecutor: CRUDExecutor<Sqlite>,
 {
     async fn insert_returning_id(
         self,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<i64> {
-        DefaultCRUDExecutor::<Sqlite>::insert_returning_id::<Self>(self, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_returning_id::<Self>(self, executor).await
     }
 }
 
@@ -166,15 +166,15 @@ where
     <User as Schema<Sqlite>>::Id: sqlx::Type<Sqlite>,
     for<'q> <User as Schema<Sqlite>>::Id: sqlx::Encode<'q, Sqlite>,
     User: Schema<Sqlite> + BindRow<Sqlite>,
-    DefaultCRUDExecutor<Sqlite>: CRUDExecutor<Sqlite>,
+    DefaultCRUDExecutor: CRUDExecutor<Sqlite>,
 {
-    type Result = <DefaultCRUDExecutor<Sqlite> as CRUDExecutor<Sqlite>>::InsertWithIdResult;
+    type Result = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::InsertWithIdResult;
 
     async fn insert_with_id(
         self,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> Self::Result {
-        DefaultCRUDExecutor::<Sqlite>::insert_with_id::<Self>(self, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_with_id::<Self>(self, executor).await
     }
 }
 

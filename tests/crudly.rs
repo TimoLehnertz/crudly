@@ -7,7 +7,7 @@ use common::mock_crud_executor::{self as mcx, MockCrudExecutor};
 use common::sqlite;
 use crudly::{Crudly, HasColumns, InsertReturningId, InsertWithId, IntoRow, Schema};
 use sqlx::sqlite::Sqlite;
-use sqlx::{Arguments, FromRow};
+use sqlx::FromRow;
 
 #[test]
 fn schema_table_inferred_plural_snake() {
@@ -68,8 +68,8 @@ async fn custom_executor_routes_through_mock() {
     }
 
     mcx::clear_log();
-    TinyRow::find_all(&pool).await.unwrap();
-    assert_eq!(mcx::take_log(), vec!["find_all"]);
+    TinyRow::select_all(&pool).await.unwrap();
+    assert_eq!(mcx::take_log(), vec!["select_all"]);
 
     mcx::clear_log();
     TinyRow {
