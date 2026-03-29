@@ -1,0 +1,17 @@
+[package]
+name = "crudly-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[features]
+default = []
+json = []
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits"] } # Todo: strip features
+quote = "1.0"
+proc-macro2 = "1.0"
+heck = "0.5"
