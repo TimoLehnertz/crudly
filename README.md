@@ -94,6 +94,9 @@ because depending on context the id might or might not be desired.
 Deriving Crudly enables the following methods: `select_all`, `select_by_id`, `update_by_id`,
 `id_exists`, `delete_by_id` and either `insert_returning_id` or `insert_with_id` (see next section).
 
+**Table names:** The table name for an entity can get set by using the `#[crudly(table = "name")]` attribute. If the attribute is not
+present, the table name will get inferred from the struct name. The name of the struct in pluralized `snake_case`. (e.g. `User` -> `users`).
+
 ### IDs
 
 Currently crudly requires that every entity has a single id column that is expected to be unique (probably a PK).
