@@ -475,7 +475,7 @@ fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStr
     if attrs.flatten {
         let ty = &field.ty;
         return Ok(quote! {
-            <#ty as ::crudly::IntoRow<__CrudlyDb>>::bind_arguments(#ident, arguments)?;
+            <#ty as ::crudly::IntoRow<__CrudlyDb>>::bind_arguments(self.#ident, arguments)?;
         });
     }
 
@@ -484,12 +484,12 @@ fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStr
     if let Some(u_ty) = intermediate {
         if try_target_is_string(u_ty) {
             return Ok(quote! {
-                arguments.add((#ident).to_string()).map_err(::sqlx::Error::Encode)?;
+                arguments.add((self.#ident).to_string()).map_err(::sqlx::Error::Encode)?;
             });
         }
         return Ok(quote! {
             {
-                let __v: #u_ty = ::std::convert::TryInto::try_into(#ident)
+                let __v: #u_ty = ::std::convert::TryInto::try_into(self.#ident)
                     .map_err(|e| ::sqlx::Error::Encode(::std::boxed::Box::new(e)))?;
                 arguments.add(__v).map_err(::sqlx::Error::Encode)?;
             }
@@ -500,13 +500,13 @@ fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStr
         return Ok(match json_attr {
             JsonAttr::NonNullable => quote! {
                 arguments
-                    .add(::sqlx::types::Json(#ident))
+                    .add(::sqlx::types::Json(self.#ident))
                     .map_err(::sqlx::Error::Encode)?;
             },
             JsonAttr::Nullable => {
                 let inner_ty = option_inner_type(&field.ty)?;
                 quote! {
-                    match #ident {
+                    match self.#ident {
                         Some(__crudly_json_inner) => {
                             arguments
                                 .add(::sqlx::types::Json(__crudly_json_inner))
@@ -524,7 +524,7 @@ fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStr
     }
 
     Ok(quote! {
-        arguments.add(#ident).map_err(::sqlx::Error::Encode)?;
+        arguments.add(self.#ident).map_err(::sqlx::Error::Encode)?;
     })
 }
 
@@ -573,11 +573,6 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let mut column_fragments = Vec::new();
     let mut saw_non_skip = false;
-    let all_idents: Vec<&Ident> = fields_named
-        .named
-        .iter()
-        .map(|f| f.ident.as_ref().expect("named fields only"))
-        .collect();
 
     let mut parsed: Vec<(&Field, FieldAttrs)> = Vec::new();
 
@@ -661,7 +656,6 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
                 arguments: &mut <__CrudlyDb as ::sqlx::Database>::Arguments<'q>,
             ) -> ::sqlx::Result<()> {
                 use ::sqlx::Arguments as _;
-                let Self { #(#all_idents),* } = self;
                 #(#bind_fragments)*
                 Ok(())
             }

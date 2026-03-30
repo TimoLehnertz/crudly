@@ -8,8 +8,8 @@ const CREATE_USERS_TABLE_SQL: &str =
 #[derive(FromRow, IntoRow, Crudly)]
 struct User {
     #[crudly(id)]
-    id: i64,
-    name: String,
+    pub id: i64,
+    pub name: String,
 }
 
 #[tokio::main]
