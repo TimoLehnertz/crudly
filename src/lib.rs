@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! # #[allow(unused_variables)]
-//! # use crudly::{Crudly, InsertReturningId};
+//! # use crudly::{Crudly, InsertWithoutId};
 //! # use sqlx::{SqlitePool, query};
 //! #[derive(sqlx::FromRow, crudly::IntoRow, crudly::Crudly)]
 //! struct User {
@@ -40,7 +40,7 @@
 //!         id: 0,
 //!         name: "John Doe".to_string(),
 //!     };
-//!     let inserted_id = user.insert_returning_id(&pool).await.unwrap();
+//!     let inserted_id = user.insert(&pool).await.unwrap();
 //!     assert_eq!(inserted_id, 1);
 //!
 //!     // --------------- Selecting all users ---------------
@@ -110,7 +110,9 @@
 //! ## The `Crudly` trait
 //!
 //! Deriving Crudly enables the following methods: `select_all`, `select_by_id`, `update_by_id`,
-//! `id_exists`, `delete_by_id` and either `insert_returning_id` or `insert_with_id` (see next section).
+//! `id_exists`, `delete_by_id` and either `insert` or `insert_with_id` (see next section).
+//! For database-assigned ids, [`InsertWithoutId`] is also derived (`insert` and `insert_many`). `batch_size` limits rows
+//! per `INSERT`; use `0` for one statement over all rows.
 //!
 //! **Table names:** The table name for an entity can get set by using the `#[crudly(table = "name")]` attribute. If the attribute is not
 //! present, the table name will get inferred from the struct name. The name of the struct in pluralized `snake_case`. (e.g. `User` -> `users`).

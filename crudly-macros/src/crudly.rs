@@ -238,14 +238,24 @@ pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
                 parse_quote!(Self: ::crudly::DBAssignedId),
             ])?;
             quote! {
-                impl #impl_gen ::crudly::InsertReturningId<#db_ty> for #ident #struct_ty_gen
+                impl #impl_gen ::crudly::InsertWithoutId<#db_ty> for #ident #struct_ty_gen
                 #insert_where
                 {
-                    async fn insert_returning_id(
+                    type InsertManyResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertManyWithoutIdResult;
+
+                    async fn insert(
                         self,
                         executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
                     ) -> ::sqlx::Result<i64> {
                         <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self>(self, executor).await
+                    }
+
+                    async fn insert_many(
+                        entities: ::std::vec::Vec<Self>,
+                        batch_size: usize,
+                        executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty> + ::core::clone::Clone,
+                    ) -> Self::InsertManyResult {
+                        <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_without_id::<Self>(entities, batch_size, executor).await
                     }
                 }
             }
@@ -262,13 +272,21 @@ pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
                 impl #impl_gen ::crudly::InsertWithId<#db_ty> for #ident #struct_ty_gen
                 #insert_where
                 {
-                    type Result = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertWithIdResult;
+                    type InsertResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertWithIdResult;
 
-                    async fn insert_with_id(
+                    async fn insert(
                         self,
                         executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                    ) -> Self::Result {
+                    ) -> Self::InsertResult {
                         <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self>(self, executor).await
+                    }
+
+                    async fn insert_many(
+                        entities: ::std::vec::Vec<Self>,
+                        batch_size: usize,
+                        executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty> + ::core::clone::Clone,
+                    ) -> ::sqlx::Result<()> {
+                        <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_with_id::<Self>(entities, batch_size, executor).await
                     }
                 }
             }

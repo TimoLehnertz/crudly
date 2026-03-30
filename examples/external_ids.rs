@@ -24,7 +24,7 @@ async fn main() {
         id: 42,
         name: "John Doe".to_string(),
     };
-    user.insert_with_id(&pool).await.unwrap();
+    user.insert(&pool).await.unwrap();
 
     // --------------- Selecting all users ---------------
 

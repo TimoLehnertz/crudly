@@ -5,7 +5,7 @@ mod common;
 
 use common::mock_crud_executor::{self as mcx, MockCrudExecutor};
 use common::sqlite;
-use crudly::{Crudly, HasColumns, InsertReturningId, InsertWithId, IntoRow, Schema};
+use crudly::{Crudly, HasColumns, InsertWithId, InsertWithoutId, IntoRow, Schema};
 use sqlx::FromRow;
 use sqlx::sqlite::Sqlite;
 
@@ -76,10 +76,29 @@ async fn custom_executor_routes_through_mock() {
         id: 0,
         label: "a".into(),
     }
-    .insert_returning_id(&pool)
+    .insert(&pool)
     .await
     .unwrap();
-    assert!(mcx::take_log().contains(&"insert_returning_id"));
+    assert!(mcx::take_log().contains(&"insert"));
+
+    mcx::clear_log();
+    TinyRow::insert_many(
+        vec![
+            TinyRow {
+                id: 0,
+                label: "b".into(),
+            },
+            TinyRow {
+                id: 0,
+                label: "c".into(),
+            },
+        ],
+        1,
+        &pool,
+    )
+    .await
+    .unwrap();
+    assert!(mcx::take_log().contains(&"insert_many_without_id"));
 }
 
 #[derive(FromRow, IntoRow, Crudly)]
@@ -116,7 +135,7 @@ async fn external_ids_insert_with_id() {
         id: 42,
         label: "hi".into(),
     }
-    .insert_with_id(&pool)
+    .insert(&pool)
     .await
     .unwrap();
 

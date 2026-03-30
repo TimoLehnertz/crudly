@@ -39,7 +39,7 @@ async fn main() {
         id: 0,
         name: "John Doe".to_string(),
     };
-    let inserted_id = user.insert_returning_id(&pool).await.unwrap();
+    let inserted_id = user.insert(&pool).await.unwrap();
     assert_eq!(inserted_id, 1);
     // --------------- Selecting all users ---------------
     let mut users: Vec<User> = User::select_all(&pool).await.unwrap();
@@ -92,7 +92,7 @@ because depending on context the id might or might not be desired.
 ## The `Crudly` trait
 
 Deriving Crudly enables the following methods: `select_all`, `select_by_id`, `update_by_id`,
-`id_exists`, `delete_by_id` and either `insert_returning_id` or `insert_with_id` (see next section).
+`id_exists`, `delete_by_id` and either `insert` or `insert_with_id` (see next section).
 
 **Table names:** The table name for an entity can get set by using the `#[crudly(table = "name")]` attribute. If the attribute is not
 present, the table name will get inferred from the struct name. The name of the struct in pluralized `snake_case`. (e.g. `User` -> `users`).

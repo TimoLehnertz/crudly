@@ -1,8 +1,9 @@
 #![allow(unused_variables)]
 use crudly::{
-    BindRow, CRUDExecutor, Crudly, DBAssignedId, ExternallyAssignedId, InsertReturningId, IntoRow,
-    Schema, generic_delete_by_id, generic_id_exists, generic_insert_returning_id,
-    generic_insert_with_id, generic_select_all, generic_select_by_id, generic_update_by_id,
+    BindRow, CRUDExecutor, Crudly, DBAssignedId, ExternallyAssignedId, InsertWithoutId, IntoRow,
+    Schema, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
+    generic_insert_many_without_id, generic_insert_returning_id, generic_insert_with_id,
+    generic_select_all, generic_select_by_id, generic_update_by_id,
 };
 use sqlx::{Encode, Executor, FromRow, Sqlite, SqlitePool, Type, query, sqlite::SqliteRow};
 
@@ -21,6 +22,7 @@ struct ExecutorWithTheAnswerToEverything;
 
 /// You can implement CRUDExecutor for multiple databases just like done with [crudly::DefaultCRUDExecutor].
 impl CRUDExecutor<Sqlite> for ExecutorWithTheAnswerToEverything {
+    type InsertManyWithoutIdResult = sqlx::Result<()>;
     type InsertWithIdResult = sqlx::Result<()>;
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
@@ -35,6 +37,29 @@ impl CRUDExecutor<Sqlite> for ExecutorWithTheAnswerToEverything {
         let _ = generic_insert_returning_id::<S, Sqlite>(executor, entity).await?;
         // ---------------------------------- The answer to everything is 42 ----------------------------------
         Ok(42)
+    }
+
+    async fn insert_many_without_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S: BindRow<Sqlite> + DBAssignedId,
+    {
+        generic_insert_many_without_id::<S, Sqlite, _>(executor, entities, batch_size).await
+    }
+
+    async fn insert_many_with_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
+        S: BindRow<Sqlite> + ExternallyAssignedId,
+    {
+        generic_insert_many_with_id::<S, Sqlite, _>(executor, entities, batch_size).await
     }
 
     async fn select_all<S>(
@@ -112,7 +137,7 @@ async fn main() {
         name: "John Doe".to_string(),
     };
 
-    let inserted_id = user.insert_returning_id(&pool).await.unwrap();
+    let inserted_id = user.insert(&pool).await.unwrap();
 
     assert_eq!(inserted_id, 42); // Check the answer
 }

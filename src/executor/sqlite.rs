@@ -1,10 +1,11 @@
 use crate::executor::{
-    generic_delete_by_id, generic_insert_returning_id, generic_insert_with_id, generic_update_by_id,
+    generic_delete_by_id, generic_insert_many_without_id, generic_insert_returning_id,
+    generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
     BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
     FormatPlaceholder, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
-    generic_select_all, generic_select_by_id,
+    generic_insert_many_with_id, generic_select_all, generic_select_by_id,
 };
 use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
 use sqlx::{Encode, Executor, FromRow, Sqlite, Type};
@@ -31,6 +32,7 @@ impl CRUDExecutor<Sqlite> for DefaultCRUDExecutor {
     type InsertWithIdResult = sqlx::Result<()>;
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
+    type InsertManyWithoutIdResult = sqlx::Result<()>;
 
     async fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
@@ -82,6 +84,29 @@ impl CRUDExecutor<Sqlite> for DefaultCRUDExecutor {
         S: BindRow<Sqlite> + DBAssignedId,
     {
         generic_insert_returning_id::<S, Sqlite>(executor, entity).await
+    }
+
+    async fn insert_many_without_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S: BindRow<Sqlite> + DBAssignedId,
+    {
+        generic_insert_many_without_id::<S, Sqlite, _>(executor, entities, batch_size).await
+    }
+
+    async fn insert_many_with_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
+        S: BindRow<Sqlite> + ExternallyAssignedId,
+    {
+        generic_insert_many_with_id::<S, Sqlite, _>(executor, entities, batch_size).await
     }
 
     async fn update_by_id<S>(

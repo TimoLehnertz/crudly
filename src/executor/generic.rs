@@ -50,8 +50,9 @@ where
 {
     let columns = comma_delimited_columns_with_id::<S, DB>();
     let table_name = S::table_name();
+    let id_column = S::id_column();
 
-    let sql = format!("SELECT {columns} FROM {table_name};");
+    let sql = format!("SELECT {columns} FROM {table_name} ORDER BY {id_column} ASC;");
     query_as(&sql).fetch_all(executor).await
 }
 
@@ -149,6 +150,142 @@ where
 
     let result = query_with(&sql, arguments).execute(executor).await?;
     Ok(result.last_insert_rowid())
+}
+
+/// Inserts many rows, omitting the id column (same shape as [`generic_insert_returning_id`] per row).
+///
+/// When `batch_size` is `0`, runs a single `INSERT` for all rows. Otherwise splits into multiple
+/// statements of at most `batch_size` rows each.
+pub async fn generic_insert_many_without_id<S, DB, E>(
+    executor: E,
+    entities: Vec<S>,
+    batch_size: usize,
+) -> sqlx::Result<()>
+where
+    E: for<'e> Executor<'e, Database = DB> + Clone,
+    DB: Database + FormatPlaceholder,
+    S: BindRow<DB>,
+    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+{
+    if entities.is_empty() {
+        return Ok(());
+    }
+
+    let table_name = S::table_name();
+    let columns = S::columns()
+        .into_iter()
+        .map(|c| format!("\"{c}\""))
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let cols_per_row = S::columns().len();
+
+    let exec = executor.clone();
+    let mut rest = entities;
+
+    while !rest.is_empty() {
+        let chunk_len = if batch_size == 0 {
+            rest.len()
+        } else {
+            batch_size.min(rest.len())
+        };
+        let remainder = rest.split_off(chunk_len);
+
+        let mut placeholder_idx = 0;
+        let mut value_tuples = Vec::with_capacity(chunk_len);
+        for _ in 0..chunk_len {
+            let placeholders = (0..cols_per_row)
+                .map(|_| {
+                    let p = DB::format_placeholder(placeholder_idx);
+                    placeholder_idx += 1;
+                    p
+                })
+                .collect::<Vec<String>>()
+                .join(",");
+            value_tuples.push(format!("({placeholders})"));
+        }
+
+        let sql = format!(
+            "INSERT INTO {table_name} ({columns}) VALUES {}",
+            value_tuples.join(",")
+        );
+
+        let mut arguments = DB::Arguments::default();
+        for entity in rest {
+            entity.bind_arguments(&mut arguments)?;
+        }
+        query_with(&sql, arguments).execute(exec.clone()).await?;
+        rest = remainder;
+    }
+
+    Ok(())
+}
+
+/// Inserts many rows, with the id column (same shape as [`generic_insert_with_id`] per row).
+///
+/// When `batch_size` is `0`, runs a single `INSERT` for all rows. Otherwise splits into multiple
+/// statements of at most `batch_size` rows each.
+pub async fn generic_insert_many_with_id<S, DB, E>(
+    executor: E,
+    entities: Vec<S>,
+    batch_size: usize,
+) -> sqlx::Result<()>
+where
+    S::Id: for<'q> Encode<'q, DB> + Type<DB>,
+    E: for<'e> Executor<'e, Database = DB> + Clone,
+    DB: Database + FormatPlaceholder,
+    S: BindRow<DB>,
+    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+{
+    if entities.is_empty() {
+        return Ok(());
+    }
+
+    let table_name = S::table_name();
+    let columns = comma_delimited_columns_with_id::<S, DB>();
+
+    let cols_per_row = S::columns().len() + 1; // +1 for the id column
+
+    let exec = executor.clone();
+    let mut rest = entities;
+
+    while !rest.is_empty() {
+        let chunk_len = if batch_size == 0 {
+            rest.len()
+        } else {
+            batch_size.min(rest.len())
+        };
+        let remainder = rest.split_off(chunk_len);
+
+        let mut placeholder_idx = 0;
+        let mut value_tuples = Vec::with_capacity(chunk_len);
+        for _ in 0..chunk_len {
+            let placeholders = (0..cols_per_row)
+                .map(|_| {
+                    let p = DB::format_placeholder(placeholder_idx);
+                    placeholder_idx += 1;
+                    p
+                })
+                .collect::<Vec<String>>()
+                .join(",");
+            value_tuples.push(format!("({placeholders})"));
+        }
+
+        let sql = format!(
+            "INSERT INTO {table_name} ({columns}) VALUES {}",
+            value_tuples.join(",")
+        );
+
+        let mut arguments = DB::Arguments::default();
+        for entity in rest {
+            arguments.add(entity.id()).map_err(sqlx::Error::Encode)?;
+            entity.bind_arguments(&mut arguments)?;
+        }
+        query_with(&sql, arguments).execute(exec.clone()).await?;
+        rest = remainder;
+    }
+
+    Ok(())
 }
 
 /// # Returns

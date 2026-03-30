@@ -30,6 +30,7 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
     type InsertWithIdResult = sqlx::Result<()>;
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
+    type InsertManyWithoutIdResult = sqlx::Result<()>;
 
     async fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
@@ -84,8 +85,39 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
     where
         S: BindRow<Sqlite> + DBAssignedId,
     {
-        log("insert_returning_id");
+        log("insert");
         DefaultCRUDExecutor::insert_returning_id(entity, executor).await
+    }
+
+    async fn insert_many_without_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S: BindRow<Sqlite> + DBAssignedId,
+    {
+        log("insert_many_without_id");
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<S>(
+            entities, batch_size, executor,
+        )
+        .await
+    }
+
+    async fn insert_many_with_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
+        S: BindRow<Sqlite> + ExternallyAssignedId,
+    {
+        log("insert_many_with_id");
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<S>(
+            entities, batch_size, executor,
+        )
+        .await
     }
 
     async fn update_by_id<S>(

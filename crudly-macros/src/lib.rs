@@ -29,7 +29,7 @@ pub fn derive_into_row(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Derive Schema, Crudly, and the appropriate insert trait / id marker.
+/// Derive Schema, Crudly, and the appropriate insert trait / id marker ([`InsertWithoutId`](https://docs.rs/crudly/latest/crudly/trait.InsertWithoutId.html) when ids are DB-assigned, otherwise [`InsertWithId`](https://docs.rs/crudly/latest/crudly/trait.InsertWithId.html)).
 ///
 /// Mark the primary key with `#[crudly(id)]` on **exactly one** field (that field must not use `skip`).
 /// Container `#[crudly(...)]`: `table`, `db_ids` (default), `external_ids`, `executor`.

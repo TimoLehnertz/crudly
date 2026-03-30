@@ -98,22 +98,41 @@ pub trait Crudly<DB: Database>: Sized {
     // }
 }
 
-pub trait InsertReturningId<DB: Database> {
-    fn insert_returning_id(
+/// Insert rows without supplying the id column so the database can assign ids (e.g. `AUTOINCREMENT`,
+/// `SERIAL`). This trait is derived by [`Crudly`] unless `#[crudly(external_ids)]` is set on the struct.
+pub trait InsertWithoutId<DB: Database>: Sized {
+    /// One might want to implement this in a way that returns all the inserted ids.
+    type InsertManyResult;
+
+    fn insert(
         self,
         executor: impl for<'e> Executor<'e, Database = DB>,
     ) -> impl Future<Output = sqlx::Result<i64>>;
+
+    /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
+    fn insert_many(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = DB> + Clone,
+    ) -> impl Future<Output = Self::InsertManyResult>;
 }
 
-pub trait InsertWithId<DB: Database> {
+pub trait InsertWithId<DB: Database>: Sized {
     /// Most likely sqlx::Result<()> But one could also use the
     /// sql RETURNING clause to return the actual entity after it was inserted.
-    type Result;
+    type InsertResult;
 
-    fn insert_with_id(
+    fn insert(
         self,
         executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = Self::Result>;
+    ) -> impl Future<Output = Self::InsertResult>;
+
+    /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
+    fn insert_many(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = DB> + Clone,
+    ) -> impl Future<Output = sqlx::Result<()>>;
 }
 
-// todo: add insert_many and delete_many
+// todo: add delete_many

@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crudly::{Crudly, InsertReturningId, IntoRow};
+use crudly::{Crudly, InsertWithoutId, IntoRow};
 use sqlx::{FromRow, SqlitePool, query};
 
 const CREATE_USERS_TABLE_SQL: &str =
@@ -23,7 +23,7 @@ async fn main() {
         id: 0,
         name: "John Doe".to_string(),
     };
-    let inserted_id = user.insert_returning_id(&pool).await.unwrap();
+    let inserted_id = user.insert(&pool).await.unwrap();
     assert_eq!(inserted_id, 1);
 
     // --------------- Selecting all users ---------------

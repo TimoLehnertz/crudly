@@ -30,6 +30,9 @@ pub trait CRUDExecutor<DB: Database> {
     /// the entity was indeed deleted or didn't exist in the first place.
     type DeleteByIdResult;
 
+    /// One might want to implement this in a way that returns all the inserted ids.
+    type InsertManyWithoutIdResult;
+
     fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = DB>,
     ) -> impl Future<Output = sqlx::Result<Vec<S>>>
@@ -67,7 +70,24 @@ pub trait CRUDExecutor<DB: Database> {
     where
         S: BindRow<DB> + DBAssignedId;
 
-    // todo: add insert_many and delete_many
+    /// `batch_size`: max rows per `INSERT`; `0` means one statement for the full input.
+    fn insert_many_without_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = DB> + Clone,
+    ) -> impl Future<Output = Self::InsertManyWithoutIdResult>
+    where
+        S: BindRow<DB> + DBAssignedId;
+
+    /// `batch_size`: max rows per `INSERT`; `0` means one statement for the full input.
+    fn insert_many_with_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = DB> + Clone,
+    ) -> impl Future<Output = sqlx::Result<()>>
+    where
+        S::Id: for<'q> Encode<'q, DB> + Type<DB>,
+        S: BindRow<DB> + ExternallyAssignedId;
 
     fn update_by_id<S>(
         entity: S,

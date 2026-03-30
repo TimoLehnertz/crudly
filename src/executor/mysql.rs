@@ -1,10 +1,11 @@
 use crate::executor::{
-    generic_delete_by_id, generic_insert_returning_id, generic_insert_with_id, generic_update_by_id,
+    generic_delete_by_id, generic_insert_many_without_id, generic_insert_returning_id,
+    generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
     BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
     FormatPlaceholder, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
-    generic_select_all, generic_select_by_id,
+    generic_insert_many_with_id, generic_select_all, generic_select_by_id,
 };
 use sqlx::MySql;
 use sqlx::mysql::{MySqlQueryResult, MySqlRow};
@@ -32,6 +33,7 @@ impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
     type InsertWithIdResult = sqlx::Result<()>;
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
+    type InsertManyWithoutIdResult = sqlx::Result<()>;
 
     async fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = MySql>,
@@ -83,6 +85,29 @@ impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
         S: BindRow<MySql> + DBAssignedId,
     {
         generic_insert_returning_id::<S, MySql>(executor, entity).await
+    }
+
+    async fn insert_many_without_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = MySql> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S: BindRow<MySql> + DBAssignedId,
+    {
+        generic_insert_many_without_id::<S, MySql, _>(executor, entities, batch_size).await
+    }
+
+    async fn insert_many_with_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = MySql> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
+        S: BindRow<MySql> + ExternallyAssignedId,
+    {
+        generic_insert_many_with_id::<S, MySql, _>(executor, entities, batch_size).await
     }
 
     async fn update_by_id<S>(

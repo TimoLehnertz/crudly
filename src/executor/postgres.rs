@@ -1,10 +1,11 @@
 use crate::executor::{
-    format_placeholders, generic_delete_by_id, generic_insert_with_id, generic_update_by_id,
+    format_placeholders, generic_delete_by_id, generic_insert_many_without_id,
+    generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
     BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
-    FormatPlaceholder, RowsAffected, Schema, generic_id_exists, generic_select_all,
-    generic_select_by_id,
+    FormatPlaceholder, RowsAffected, Schema, generic_id_exists, generic_insert_many_with_id,
+    generic_select_all, generic_select_by_id,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
 use sqlx::{Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
@@ -21,7 +22,7 @@ impl RowsAffected for PgQueryResult {
     }
 }
 
-pub async fn pg_insert_returning_id<S>(
+pub async fn pg_insert<S>(
     entity: S,
     executor: impl for<'e> Executor<'e, Database = Postgres>,
 ) -> sqlx::Result<i64>
@@ -57,6 +58,7 @@ impl CRUDExecutor<Postgres> for DefaultCRUDExecutor {
     type InsertWithIdResult = sqlx::Result<()>;
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
+    type InsertManyWithoutIdResult = sqlx::Result<()>;
 
     async fn select_all<S>(
         executor: impl for<'e> Executor<'e, Database = Postgres>,
@@ -107,7 +109,30 @@ impl CRUDExecutor<Postgres> for DefaultCRUDExecutor {
     where
         S: BindRow<Postgres> + DBAssignedId,
     {
-        pg_insert_returning_id(entity, executor).await
+        pg_insert(entity, executor).await
+    }
+
+    async fn insert_many_without_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Postgres> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S: BindRow<Postgres> + DBAssignedId,
+    {
+        generic_insert_many_without_id::<S, Postgres, _>(executor, entities, batch_size).await
+    }
+
+    async fn insert_many_with_id<S>(
+        entities: Vec<S>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Postgres> + Clone,
+    ) -> sqlx::Result<()>
+    where
+        S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres>,
+        S: BindRow<Postgres> + ExternallyAssignedId,
+    {
+        generic_insert_many_with_id::<S, Postgres, _>(executor, entities, batch_size).await
     }
 
     async fn update_by_id<S>(

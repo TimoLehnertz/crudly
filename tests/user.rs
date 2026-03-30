@@ -1,7 +1,7 @@
 //! This file is a sandbox for testing what the derived code should look like.
 use crudly::{
     BindRow, CRUDExecutor, Crudly, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
-    HasColumns, InsertReturningId, InsertWithId, IntoRow, Schema,
+    HasColumns, InsertWithId, InsertWithoutId, IntoRow, Schema,
 };
 use serde::Serialize;
 use sqlx::sqlite::{Sqlite, SqlitePool};
@@ -148,17 +148,31 @@ where
     }
 }
 
-impl InsertReturningId<Sqlite> for User
+impl InsertWithoutId<Sqlite> for User
 where
     User: Schema<Sqlite> + BindRow<Sqlite>,
     DefaultCRUDExecutor: CRUDExecutor<Sqlite>,
 {
-    async fn insert_returning_id(
+    type InsertManyResult =
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::InsertManyWithoutIdResult;
+
+    async fn insert(
         self,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
     ) -> sqlx::Result<i64> {
         <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_returning_id::<Self>(self, executor)
             .await
+    }
+
+    async fn insert_many(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()> {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<Self>(
+            entities, batch_size, executor,
+        )
+        .await
     }
 }
 
@@ -169,13 +183,24 @@ where
     User: Schema<Sqlite> + BindRow<Sqlite>,
     DefaultCRUDExecutor: CRUDExecutor<Sqlite>,
 {
-    type Result = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::InsertWithIdResult;
+    type InsertResult = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::InsertWithIdResult;
 
-    async fn insert_with_id(
+    async fn insert(
         self,
         executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> Self::Result {
+    ) -> Self::InsertResult {
         <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_with_id::<Self>(self, executor).await
+    }
+
+    async fn insert_many(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+    ) -> sqlx::Result<()> {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<Self>(
+            entities, batch_size, executor,
+        )
+        .await
     }
 }
 
@@ -196,10 +221,35 @@ async fn sqlite_memory_pool() -> SqlitePool {
 async fn insert_user_returning_id() {
     let pool = sqlite_memory_pool().await;
 
-    let first_user_id = User::default().insert_returning_id(&pool).await.unwrap();
+    let first_user_id = InsertWithoutId::insert(User::default(), &pool)
+        .await
+        .unwrap();
     assert_eq!(first_user_id, 1);
 
-    let second_user_id = User::default().insert_returning_id(&pool).await.unwrap();
+    let second_user_id = InsertWithoutId::insert(User::default(), &pool)
+        .await
+        .unwrap();
 
     assert_eq!(second_user_id, 2);
+}
+
+#[tokio::test]
+async fn insert_many_users_without_id() {
+    let pool = sqlite_memory_pool().await;
+
+    InsertWithoutId::insert_many(vec![User::default(), User::default()], 0, &pool)
+        .await
+        .unwrap();
+
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(n, 2);
+
+    let max_id: i64 = sqlx::query_scalar("SELECT MAX(id) FROM users")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(max_id, 2);
 }
