@@ -2,11 +2,11 @@
 //! # Crudly
 //! Derivable crud helpers for sqlx. Write your `SELECT`, `INSERT`, `UPDATE`, and `DELETE` queries once and reuse them for all your entities.
 //!
-//! Provides the `#[derive(IntoRow)]` and `#[derive(Crudly)]` macros.
+//! Provides the `#[derive(IntoRow)]`, `#[derive(Schema)]`, and `#[derive(Crudly)]` macros.
 //!
 //! ## Features
 //!
-//! - `derive`: (Default) Enables the `#[derive(Crudly)]` and `#[derive(IntoRow)]` macros
+//! - `derive`: (Default) Enables the `#[derive(Crudly)]`, `#[derive(Schema)]`, and `#[derive(IntoRow)]` macros
 //! - `postgres`: Enables default crud implementations for database
 //! - `mysql`: Enables default crud implementations for MySQL
 //! - `sqlite`: Enables default crud implementations for sqlite
@@ -163,7 +163,7 @@ mod executor;
 mod traits;
 
 #[cfg(feature = "derive")]
-pub use crudly_macros::{Crudly, IntoRow};
+pub use crudly_macros::{Crudly, IntoRow, Schema};
 
 pub use executor::*;
 pub use traits::*;
