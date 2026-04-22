@@ -101,7 +101,7 @@ where
 }
 
 pub async fn generic_insert_with_id<S, DB>(
-    executor: impl for<'e> Executor<'e, Database = DB>,
+    executor: impl Executor<'_, Database = DB>,
     entity: S,
 ) -> sqlx::Result<()>
 where
@@ -125,7 +125,7 @@ where
 }
 
 pub async fn generic_insert_returning_id<S, DB>(
-    executor: impl for<'e> Executor<'e, Database = DB>,
+    executor: impl Executor<'_, Database = DB>,
     entity: S,
 ) -> sqlx::Result<i64>
 where
@@ -293,7 +293,7 @@ where
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
 pub async fn generic_update_by_id<S, DB>(
-    executor: impl for<'e> Executor<'e, Database = DB>,
+    executor: impl Executor<'_, Database = DB>,
     entity: S,
 ) -> sqlx::Result<bool>
 where
@@ -337,7 +337,7 @@ where
 /// - Ok(false) if it didn't exist
 /// - Err(e) on error
 pub async fn generic_delete_by_id<S, DB>(
-    executor: impl for<'e> Executor<'e, Database = DB>,
+    executor: impl Executor<'_, Database = DB>,
     id: &S::Id,
 ) -> sqlx::Result<bool>
 where
