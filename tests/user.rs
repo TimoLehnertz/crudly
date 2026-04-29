@@ -238,6 +238,17 @@ async fn test_use_con_as_impl_executor() {
 }
 
 #[tokio::test]
+async fn test_use_pool_con_as_impl_executor() {
+    let pool = sqlite_memory_pool().await;
+    let mut con = pool.acquire().await.unwrap();
+
+    let first_user_id = InsertWithoutId::insert(User::default(), &mut *con)
+        .await
+        .unwrap();
+    assert_eq!(first_user_id, 1);
+}
+
+#[tokio::test]
 async fn insert_user_returning_id() {
     let pool = sqlite_memory_pool().await;
 
