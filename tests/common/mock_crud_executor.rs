@@ -32,115 +32,104 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
     type DeleteByIdResult = sqlx::Result<bool>;
     type InsertManyWithoutIdResult = sqlx::Result<()>;
 
-    async fn select_all<S>(
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<Vec<S>>
+    async fn select_all<'c, S, E>(executor: E) -> sqlx::Result<Vec<S>>
     where
+        E: Executor<'c, Database = Sqlite>,
         S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
     {
         log("select_all");
-        DefaultCRUDExecutor::select_all(executor).await
+        DefaultCRUDExecutor::select_all::<S, _>(executor).await
     }
 
-    async fn select_by_id<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<Option<S>>
+    async fn select_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<Option<S>>
     where
+        E: Executor<'c, Database = Sqlite>,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
     {
         log("select_by_id");
-        DefaultCRUDExecutor::select_by_id(id, executor).await
+        DefaultCRUDExecutor::select_by_id::<S, _>(id, executor).await
     }
 
-    async fn id_exists<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<bool>
+    async fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = Sqlite>,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: Schema<Sqlite>,
     {
         log("id_exists");
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::id_exists::<S>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::id_exists::<S, _>(id, executor).await
     }
 
-    async fn insert_with_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<()>
+    async fn insert_with_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = Sqlite>,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite> + 'static,
         S: BindRow<Sqlite> + ExternallyAssignedId,
     {
         log("insert_with_id");
-        DefaultCRUDExecutor::insert_with_id(entity, executor).await
+        DefaultCRUDExecutor::insert_with_id::<S, _>(entity, executor).await
     }
 
-    async fn insert_returning_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<i64>
+    async fn insert_returning_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
     where
+        E: Executor<'c, Database = Sqlite>,
         S: BindRow<Sqlite> + DBAssignedId,
     {
         log("insert");
-        DefaultCRUDExecutor::insert_returning_id(entity, executor).await
+        DefaultCRUDExecutor::insert_returning_id::<S, _>(entity, executor).await
     }
 
-    async fn insert_many_without_id<S>(
+    async fn insert_many_without_id<'c, S, E>(
         entities: Vec<S>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+        executor: E,
     ) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = Sqlite> + Clone,
         S: BindRow<Sqlite> + DBAssignedId,
     {
         log("insert_many_without_id");
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<S>(
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<S, _>(
             entities, batch_size, executor,
         )
         .await
     }
 
-    async fn insert_many_with_id<S>(
+    async fn insert_many_with_id<'c, S, E>(
         entities: Vec<S>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
+        executor: E,
     ) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = Sqlite> + Clone,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: BindRow<Sqlite> + ExternallyAssignedId,
     {
         log("insert_many_with_id");
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<S>(
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<S, _>(
             entities, batch_size, executor,
         )
         .await
     }
 
-    async fn update_by_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<bool>
+    async fn update_by_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = Sqlite>,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: BindRow<Sqlite>,
     {
         log("update_by_id");
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<S>(entity, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<S, _>(entity, executor).await
     }
 
-    async fn delete_by_id<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<bool>
+    async fn delete_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = Sqlite>,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: Schema<Sqlite>,
     {
         log("delete_by_id");
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::delete_by_id::<S>(id, executor).await
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::delete_by_id::<S, _>(id, executor).await
     }
 }

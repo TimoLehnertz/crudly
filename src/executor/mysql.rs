@@ -35,97 +35,86 @@ impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
     type DeleteByIdResult = sqlx::Result<bool>;
     type InsertManyWithoutIdResult = sqlx::Result<()>;
 
-    async fn select_all<S>(
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<Vec<S>>
+    async fn select_all<'c, S, E>(executor: E) -> sqlx::Result<Vec<S>>
     where
+        E: Executor<'c, Database = MySql>,
         S: Schema<MySql> + for<'r> FromRow<'r, MySqlRow> + Unpin,
     {
         generic_select_all(executor).await
     }
 
-    async fn select_by_id<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<Option<S>>
+    async fn select_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<Option<S>>
     where
+        E: Executor<'c, Database = MySql>,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
         S: Schema<MySql> + for<'r> FromRow<'r, MySqlRow> + Unpin,
     {
         generic_select_by_id(executor, id).await
     }
 
-    async fn id_exists<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<bool>
+    async fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = MySql>,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
         S: Schema<MySql>,
     {
         generic_id_exists::<S, MySql>(executor, id).await
     }
 
-    async fn insert_with_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<()>
+    async fn insert_with_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = MySql>,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql> + 'static,
         S: BindRow<MySql> + ExternallyAssignedId,
     {
         generic_insert_with_id::<S, MySql>(executor, entity).await
     }
 
-    async fn insert_returning_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<i64>
+    async fn insert_returning_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
     where
+        E: Executor<'c, Database = MySql>,
         S: BindRow<MySql> + DBAssignedId,
     {
         generic_insert_returning_id::<S, MySql>(executor, entity).await
     }
 
-    async fn insert_many_without_id<S>(
+    async fn insert_many_without_id<'c, S, E>(
         entities: Vec<S>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = MySql> + Clone,
+        executor: E,
     ) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = MySql> + Clone,
         S: BindRow<MySql> + DBAssignedId,
     {
         generic_insert_many_without_id::<S, MySql, _>(executor, entities, batch_size).await
     }
 
-    async fn insert_many_with_id<S>(
+    async fn insert_many_with_id<'c, S, E>(
         entities: Vec<S>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = MySql> + Clone,
+        executor: E,
     ) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = MySql> + Clone,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
         S: BindRow<MySql> + ExternallyAssignedId,
     {
         generic_insert_many_with_id::<S, MySql, _>(executor, entities, batch_size).await
     }
 
-    async fn update_by_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<bool>
+    async fn update_by_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = MySql>,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
         S: BindRow<MySql>,
     {
         generic_update_by_id(executor, entity).await
     }
 
-    async fn delete_by_id<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = MySql>,
-    ) -> sqlx::Result<bool>
+    async fn delete_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = MySql>,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
         S: Schema<MySql>,
     {

@@ -69,33 +69,31 @@ pub trait Crudly<DB: Database>: Sized {
     /// the entity was indeed deleted or didn't exist in the first place.
     type DeleteByIdResult;
 
-    fn select_all(
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = sqlx::Result<Vec<Self>>>;
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>>
+    where
+        E: Executor<'c, Database = DB>;
 
-    fn select_by_id(
+    fn select_by_id<'c, E>(
         id: &Self::Id,
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = sqlx::Result<Option<Self>>>;
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<Option<Self>>>
+    where
+        E: Executor<'c, Database = DB>;
 
-    fn id_exists(
+    fn id_exists<'c, E>(id: &Self::Id, executor: E) -> impl Future<Output = sqlx::Result<bool>>
+    where
+        E: Executor<'c, Database = DB>;
+
+    fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = Self::UpdateByIdResult>
+    where
+        E: Executor<'c, Database = DB>;
+
+    fn delete_by_id<'c, E>(
         id: &Self::Id,
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = sqlx::Result<bool>>;
-
-    fn update_by_id(
-        self,
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = Self::UpdateByIdResult>;
-
-    fn delete_by_id(
-        id: &Self::Id,
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = Self::DeleteByIdResult>;
-
-    // fn delete(self, executor: impl for<'e> Executor<'e, Database = DB>) -> impl Future<Output = Self::DeleteByIdResult> {
-    //     Self::delete_by_id(&self.id(), executor)
-    // }
+        executor: E,
+    ) -> impl Future<Output = Self::DeleteByIdResult>
+    where
+        E: Executor<'c, Database = DB>;
 }
 
 /// Insert rows without supplying the id column so the database can assign ids (e.g. `AUTOINCREMENT`,
@@ -104,17 +102,18 @@ pub trait InsertWithoutId<DB: Database>: Sized {
     /// One might want to implement this in a way that returns all the inserted ids.
     type InsertManyResult;
 
-    fn insert(
-        self,
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = sqlx::Result<i64>>;
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>>
+    where
+        E: Executor<'c, Database = DB>;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
-    fn insert_many(
+    fn insert_many<'c, E>(
         entities: Vec<Self>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = DB> + Clone,
-    ) -> impl Future<Output = Self::InsertManyResult>;
+        executor: E,
+    ) -> impl Future<Output = Self::InsertManyResult>
+    where
+        E: Executor<'c, Database = DB> + Clone;
 }
 
 pub trait InsertWithId<DB: Database>: Sized {
@@ -122,17 +121,18 @@ pub trait InsertWithId<DB: Database>: Sized {
     /// sql RETURNING clause to return the actual entity after it was inserted.
     type InsertResult;
 
-    fn insert(
-        self,
-        executor: impl for<'e> Executor<'e, Database = DB>,
-    ) -> impl Future<Output = Self::InsertResult>;
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = Self::InsertResult>
+    where
+        E: Executor<'c, Database = DB>;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
-    fn insert_many(
+    fn insert_many<'c, E>(
         entities: Vec<Self>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = DB> + Clone,
-    ) -> impl Future<Output = sqlx::Result<()>>;
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<()>>
+    where
+        E: Executor<'c, Database = DB> + Clone;
 }
 
 // todo: add delete_many

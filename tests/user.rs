@@ -5,7 +5,7 @@ use crudly::{
 };
 use serde::Serialize;
 use sqlx::sqlite::{Sqlite, SqlitePool};
-use sqlx::{Arguments, Database, Executor, FromRow};
+use sqlx::{Arguments, Database, Executor, FromRow, SqliteConnection};
 use sqlx::{Encode, Type, query};
 
 #[derive(FromRow, Default)]
@@ -113,38 +113,39 @@ where
     type UpdateByIdResult = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::UpdateByIdResult;
     type DeleteByIdResult = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::DeleteByIdResult;
 
-    async fn select_all(
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<Vec<Self>> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::select_all::<Self>(executor).await
+    async fn select_all<'c, E>(executor: E) -> sqlx::Result<Vec<Self>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::select_all::<Self, _>(executor).await
     }
 
-    async fn delete_by_id(
-        id: &Self::Id,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> Self::DeleteByIdResult {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::delete_by_id::<Self>(id, executor).await
+    async fn delete_by_id<'c, E>(id: &Self::Id, executor: E) -> Self::DeleteByIdResult
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::delete_by_id::<Self, _>(id, executor).await
     }
 
-    async fn id_exists(
-        id: &Self::Id,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<bool> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::id_exists::<Self>(id, executor).await
+    async fn id_exists<'c, E>(id: &Self::Id, executor: E) -> sqlx::Result<bool>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::id_exists::<Self, _>(id, executor).await
     }
 
-    async fn select_by_id(
-        id: &Self::Id,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<Option<Self>> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::select_by_id::<Self>(id, executor).await
+    async fn select_by_id<'c, E>(id: &Self::Id, executor: E) -> sqlx::Result<Option<Self>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::select_by_id::<Self, _>(id, executor).await
     }
 
-    async fn update_by_id(
-        self,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> Self::UpdateByIdResult {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<Self>(self, executor).await
+    async fn update_by_id<'c, E>(self, executor: E) -> Self::UpdateByIdResult
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::update_by_id::<Self, _>(self, executor).await
     }
 }
 
@@ -156,20 +157,25 @@ where
     type InsertManyResult =
         <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::InsertManyWithoutIdResult;
 
-    async fn insert(
-        self,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> sqlx::Result<i64> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_returning_id::<Self>(self, executor)
-            .await
+    async fn insert<'c, E>(self, executor: E) -> sqlx::Result<i64>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_returning_id::<Self, _>(
+            self, executor,
+        )
+        .await
     }
 
-    async fn insert_many(
+    async fn insert_many<'c, E>(
         entities: Vec<Self>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
-    ) -> sqlx::Result<()> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<Self>(
+        executor: E,
+    ) -> sqlx::Result<()>
+    where
+        E: Executor<'c, Database = Sqlite> + Clone,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<Self, _>(
             entities, batch_size, executor,
         )
         .await
@@ -185,19 +191,23 @@ where
 {
     type InsertResult = <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::InsertWithIdResult;
 
-    async fn insert(
-        self,
-        executor: impl for<'e> Executor<'e, Database = Sqlite>,
-    ) -> Self::InsertResult {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_with_id::<Self>(self, executor).await
+    async fn insert<'c, E>(self, executor: E) -> Self::InsertResult
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_with_id::<Self, _>(self, executor)
+            .await
     }
 
-    async fn insert_many(
+    async fn insert_many<'c, E>(
         entities: Vec<Self>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = Sqlite> + Clone,
-    ) -> sqlx::Result<()> {
-        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<Self>(
+        executor: E,
+    ) -> sqlx::Result<()>
+    where
+        E: Executor<'c, Database = Sqlite> + Clone,
+    {
+        <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<Self, _>(
             entities, batch_size, executor,
         )
         .await
@@ -215,6 +225,16 @@ async fn sqlite_memory_pool() -> SqlitePool {
     .execute(&pool).await.unwrap();
 
     pool
+}
+
+#[tokio::test]
+async fn test_use_con_as_impl_executor() {
+    let pool = sqlite_memory_pool().await;
+    let mut con = pool.acquire().await.unwrap();
+    let con: &mut SqliteConnection = &mut *con;
+
+    let first_user_id = InsertWithoutId::insert(User::default(), con).await.unwrap();
+    assert_eq!(first_user_id, 1);
 }
 
 #[tokio::test]

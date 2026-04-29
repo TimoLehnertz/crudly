@@ -156,13 +156,13 @@ where
 ///
 /// When `batch_size` is `0`, runs a single `INSERT` for all rows. Otherwise splits into multiple
 /// statements of at most `batch_size` rows each.
-pub async fn generic_insert_many_without_id<S, DB, E>(
+pub async fn generic_insert_many_without_id<'c, S, DB, E>(
     executor: E,
     entities: Vec<S>,
     batch_size: usize,
 ) -> sqlx::Result<()>
 where
-    E: for<'e> Executor<'e, Database = DB> + Clone,
+    E: Executor<'c, Database = DB> + Clone,
     DB: Database + FormatPlaceholder,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -225,14 +225,14 @@ where
 ///
 /// When `batch_size` is `0`, runs a single `INSERT` for all rows. Otherwise splits into multiple
 /// statements of at most `batch_size` rows each.
-pub async fn generic_insert_many_with_id<S, DB, E>(
+pub async fn generic_insert_many_with_id<'c, S, DB, E>(
     executor: E,
     entities: Vec<S>,
     batch_size: usize,
 ) -> sqlx::Result<()>
 where
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    E: for<'e> Executor<'e, Database = DB> + Clone,
+    E: Executor<'c, Database = DB> + Clone,
     DB: Database + FormatPlaceholder,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,

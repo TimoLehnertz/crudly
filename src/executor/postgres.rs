@@ -22,11 +22,9 @@ impl RowsAffected for PgQueryResult {
     }
 }
 
-pub async fn pg_insert<S>(
-    entity: S,
-    executor: impl for<'e> Executor<'e, Database = Postgres>,
-) -> sqlx::Result<i64>
+pub async fn pg_insert<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
 where
+    E: Executor<'c, Database = Postgres>,
     S: BindRow<Postgres> + DBAssignedId,
 {
     let table_name = S::table_name();
@@ -60,97 +58,86 @@ impl CRUDExecutor<Postgres> for DefaultCRUDExecutor {
     type DeleteByIdResult = sqlx::Result<bool>;
     type InsertManyWithoutIdResult = sqlx::Result<()>;
 
-    async fn select_all<S>(
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<Vec<S>>
+    async fn select_all<'c, S, E>(executor: E) -> sqlx::Result<Vec<S>>
     where
+        E: Executor<'c, Database = Postgres>,
         S: Schema<Postgres> + for<'r> FromRow<'r, PgRow> + Unpin,
     {
         generic_select_all(executor).await
     }
 
-    async fn select_by_id<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<Option<S>>
+    async fn select_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<Option<S>>
     where
+        E: Executor<'c, Database = Postgres>,
         S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres>,
         S: Schema<Postgres> + for<'r> FromRow<'r, PgRow> + Unpin,
     {
         generic_select_by_id(executor, id).await
     }
 
-    async fn id_exists<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<bool>
+    async fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = Postgres>,
         S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres>,
         S: Schema<Postgres>,
     {
         generic_id_exists::<S, Postgres>(executor, id).await
     }
 
-    async fn insert_with_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<()>
+    async fn insert_with_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = Postgres>,
         S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres> + 'static,
         S: BindRow<Postgres> + ExternallyAssignedId,
     {
         generic_insert_with_id::<S, Postgres>(executor, entity).await
     }
 
-    async fn insert_returning_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<i64>
+    async fn insert_returning_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
     where
+        E: Executor<'c, Database = Postgres>,
         S: BindRow<Postgres> + DBAssignedId,
     {
         pg_insert(entity, executor).await
     }
 
-    async fn insert_many_without_id<S>(
+    async fn insert_many_without_id<'c, S, E>(
         entities: Vec<S>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = Postgres> + Clone,
+        executor: E,
     ) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = Postgres> + Clone,
         S: BindRow<Postgres> + DBAssignedId,
     {
         generic_insert_many_without_id::<S, Postgres, _>(executor, entities, batch_size).await
     }
 
-    async fn insert_many_with_id<S>(
+    async fn insert_many_with_id<'c, S, E>(
         entities: Vec<S>,
         batch_size: usize,
-        executor: impl for<'e> Executor<'e, Database = Postgres> + Clone,
+        executor: E,
     ) -> sqlx::Result<()>
     where
+        E: Executor<'c, Database = Postgres> + Clone,
         S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres>,
         S: BindRow<Postgres> + ExternallyAssignedId,
     {
         generic_insert_many_with_id::<S, Postgres, _>(executor, entities, batch_size).await
     }
 
-    async fn update_by_id<S>(
-        entity: S,
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<bool>
+    async fn update_by_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = Postgres>,
         S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres>,
         S: BindRow<Postgres>,
     {
         generic_update_by_id(executor, entity).await
     }
 
-    async fn delete_by_id<S>(
-        id: &S::Id,
-        executor: impl for<'e> Executor<'e, Database = Postgres>,
-    ) -> sqlx::Result<bool>
+    async fn delete_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
     where
+        E: Executor<'c, Database = Postgres>,
         S::Id: for<'q> Encode<'q, Postgres> + Type<Postgres>,
         S: Schema<Postgres>,
     {

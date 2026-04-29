@@ -327,19 +327,25 @@ impl CrudlyParsed {
                     {
                         type InsertManyResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertManyWithoutIdResult;
 
-                        async fn insert(
+                        async fn insert<'__crudly_c, __CrudlyE>(
                             self,
-                            executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                        ) -> ::sqlx::Result<i64> {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self>(self, executor).await
+                            executor: __CrudlyE,
+                        ) -> ::sqlx::Result<i64>
+                        where
+                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                        {
+                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self, _>(self, executor).await
                         }
 
-                        async fn insert_many(
+                        async fn insert_many<'__crudly_c, __CrudlyE>(
                             entities: ::std::vec::Vec<Self>,
                             batch_size: usize,
-                            executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty> + ::core::clone::Clone,
-                        ) -> Self::InsertManyResult {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_without_id::<Self>(entities, batch_size, executor).await
+                            executor: __CrudlyE,
+                        ) -> Self::InsertManyResult
+                        where
+                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty> + ::core::clone::Clone,
+                        {
+                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_without_id::<Self, _>(entities, batch_size, executor).await
                         }
                     }
                 }
@@ -358,19 +364,25 @@ impl CrudlyParsed {
                     {
                         type InsertResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertWithIdResult;
 
-                        async fn insert(
+                        async fn insert<'__crudly_c, __CrudlyE>(
                             self,
-                            executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                        ) -> Self::InsertResult {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self>(self, executor).await
+                            executor: __CrudlyE,
+                        ) -> Self::InsertResult
+                        where
+                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                        {
+                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self, _>(self, executor).await
                         }
 
-                        async fn insert_many(
+                        async fn insert_many<'__crudly_c, __CrudlyE>(
                             entities: ::std::vec::Vec<Self>,
                             batch_size: usize,
-                            executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty> + ::core::clone::Clone,
-                        ) -> ::sqlx::Result<()> {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_with_id::<Self>(entities, batch_size, executor).await
+                            executor: __CrudlyE,
+                        ) -> ::sqlx::Result<()>
+                        where
+                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty> + ::core::clone::Clone,
+                        {
+                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_with_id::<Self, _>(entities, batch_size, executor).await
                         }
                     }
                 }
@@ -385,38 +397,53 @@ impl CrudlyParsed {
                 type UpdateByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::UpdateByIdResult;
                 type DeleteByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::DeleteByIdResult;
 
-                async fn select_all(
-                    executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                ) -> ::sqlx::Result<::std::vec::Vec<Self>> {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_all::<Self>(executor).await
+                async fn select_all<'__crudly_c, __CrudlyE>(
+                    executor: __CrudlyE,
+                ) -> ::sqlx::Result<::std::vec::Vec<Self>>
+                where
+                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                {
+                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_all::<Self, _>(executor).await
                 }
 
-                async fn delete_by_id(
+                async fn delete_by_id<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
-                    executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                ) -> Self::DeleteByIdResult {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::delete_by_id::<Self>(id, executor).await
+                    executor: __CrudlyE,
+                ) -> Self::DeleteByIdResult
+                where
+                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                {
+                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::delete_by_id::<Self, _>(id, executor).await
                 }
 
-                async fn id_exists(
+                async fn id_exists<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
-                    executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                ) -> ::sqlx::Result<bool> {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::id_exists::<Self>(id, executor).await
+                    executor: __CrudlyE,
+                ) -> ::sqlx::Result<bool>
+                where
+                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                {
+                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::id_exists::<Self, _>(id, executor).await
                 }
 
-                async fn select_by_id(
+                async fn select_by_id<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
-                    executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                ) -> ::sqlx::Result<::std::option::Option<Self>> {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_by_id::<Self>(id, executor).await
+                    executor: __CrudlyE,
+                ) -> ::sqlx::Result<::std::option::Option<Self>>
+                where
+                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                {
+                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_by_id::<Self, _>(id, executor).await
                 }
 
-                async fn update_by_id(
+                async fn update_by_id<'__crudly_c, __CrudlyE>(
                     self,
-                    executor: impl for<'e> ::sqlx::Executor<'e, Database = #db_ty>,
-                ) -> Self::UpdateByIdResult {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self>(self, executor).await
+                    executor: __CrudlyE,
+                ) -> Self::UpdateByIdResult
+                where
+                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
+                {
+                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self, _>(self, executor).await
                 }
             }
 
