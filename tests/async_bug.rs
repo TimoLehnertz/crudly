@@ -64,7 +64,7 @@ pub struct UserExternalIds {
     pub name: String,
 }
 
-/// Thisn used to not compile with the very unhelpful error: lifetime bound not satisfied
+/// This used to not compile with the very unhelpful error: lifetime bound not satisfied
 /// this is a known limitation that will be removed in the future (see issue #100013 <https://github.com/rust-lang/rust/issues/100013> for more information)
 /// The compiler error finally was resolved by making the Crudly derive macro
 /// implement the trait functions using `fn foo() -> impl Future<Output = ...> + Send` instead async functions
