@@ -33,7 +33,7 @@ pub trait CRUDExecutor<DB: Database> {
     /// One might want to implement this in a way that returns all the inserted ids.
     type InsertManyWithoutIdResult;
 
-    fn select_all<'c, S, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<S>>>
+    fn select_all<'c, S, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<S>>> + Send
     where
         E: Executor<'c, Database = DB>,
         S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin;
@@ -41,13 +41,16 @@ pub trait CRUDExecutor<DB: Database> {
     fn select_by_id<'c, S, E>(
         id: &S::Id,
         executor: E,
-    ) -> impl Future<Output = sqlx::Result<Option<S>>>
+    ) -> impl Future<Output = sqlx::Result<Option<S>>> + Send
     where
         E: Executor<'c, Database = DB>,
         S::Id: for<'q> sqlx::Encode<'q, DB> + Type<DB>,
         S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin;
 
-    fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> impl Future<Output = sqlx::Result<bool>>
+    fn id_exists<'c, S, E>(
+        id: &S::Id,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = DB>,
         S::Id: for<'q> sqlx::Encode<'q, DB> + Type<DB>,
@@ -56,18 +59,19 @@ pub trait CRUDExecutor<DB: Database> {
     fn insert_with_id<'c, S, E>(
         entity: S,
         executor: E,
-    ) -> impl Future<Output = Self::InsertWithIdResult>
+    ) -> impl Future<Output = Self::InsertWithIdResult> + Send
     where
         E: Executor<'c, Database = DB>,
         S::Id: for<'q> Encode<'q, DB> + Type<DB> + 'static,
         S: BindRow<DB> + ExternallyAssignedId;
 
-    fn insert_returning_id<'c, S, E>(
+    fn insert_returning_id<'e, 'c, S, E>(
         entity: S,
         executor: E,
-    ) -> impl Future<Output = sqlx::Result<i64>>
+    ) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
-        E: Executor<'c, Database = DB>,
+        'c: 'e,
+        E: 'e + Executor<'c, Database = DB>,
         S: BindRow<DB> + DBAssignedId;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for the full input.
@@ -75,7 +79,7 @@ pub trait CRUDExecutor<DB: Database> {
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
-    ) -> impl Future<Output = Self::InsertManyWithoutIdResult>
+    ) -> impl Future<Output = Self::InsertManyWithoutIdResult> + Send
     where
         E: Executor<'c, Database = DB> + Clone,
         S: BindRow<DB> + DBAssignedId;
@@ -85,7 +89,7 @@ pub trait CRUDExecutor<DB: Database> {
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
-    ) -> impl Future<Output = sqlx::Result<()>>
+    ) -> impl Future<Output = sqlx::Result<()>> + Send
     where
         E: Executor<'c, Database = DB> + Clone,
         S::Id: for<'q> Encode<'q, DB> + Type<DB>,
@@ -94,7 +98,7 @@ pub trait CRUDExecutor<DB: Database> {
     fn update_by_id<'c, S, E>(
         entity: S,
         executor: E,
-    ) -> impl Future<Output = Self::UpdateByIdResult>
+    ) -> impl Future<Output = Self::UpdateByIdResult> + Send
     where
         E: Executor<'c, Database = DB>,
         S::Id: for<'q> Encode<'q, DB> + Type<DB>,
@@ -103,7 +107,7 @@ pub trait CRUDExecutor<DB: Database> {
     fn delete_by_id<'c, S, E>(
         id: &S::Id,
         executor: E,
-    ) -> impl Future<Output = Self::DeleteByIdResult>
+    ) -> impl Future<Output = Self::DeleteByIdResult> + Send
     where
         E: Executor<'c, Database = DB>,
         S::Id: for<'q> Encode<'q, DB> + Type<DB>,

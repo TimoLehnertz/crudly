@@ -327,14 +327,14 @@ impl CrudlyParsed {
                     {
                         type InsertManyResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertManyWithoutIdResult;
 
-                        async fn insert<'__crudly_c, __CrudlyE>(
+                        fn insert<'__crudly_c, __CrudlyE>(
                             self,
                             executor: __CrudlyE,
-                        ) -> ::sqlx::Result<i64>
+                        ) -> impl Future<Output = ::sqlx::Result<i64>> + Send
                         where
                             __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                         {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self, _>(self, executor).await
+                            async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self, _>(self, executor).await }
                         }
 
                         async fn insert_many<'__crudly_c, __CrudlyE>(
@@ -397,53 +397,53 @@ impl CrudlyParsed {
                 type UpdateByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::UpdateByIdResult;
                 type DeleteByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::DeleteByIdResult;
 
-                async fn select_all<'__crudly_c, __CrudlyE>(
+                fn select_all<'__crudly_c, __CrudlyE>(
                     executor: __CrudlyE,
-                ) -> ::sqlx::Result<::std::vec::Vec<Self>>
+                ) -> impl Future<Output = ::sqlx::Result<::std::vec::Vec<Self>>> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_all::<Self, _>(executor).await
+                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_all::<Self, _>(executor).await }
                 }
 
-                async fn delete_by_id<'__crudly_c, __CrudlyE>(
+                fn delete_by_id<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
                     executor: __CrudlyE,
-                ) -> Self::DeleteByIdResult
+                ) -> impl Future<Output = Self::DeleteByIdResult> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::delete_by_id::<Self, _>(id, executor).await
+                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::delete_by_id::<Self, _>(id, executor).await }
                 }
 
-                async fn id_exists<'__crudly_c, __CrudlyE>(
+                fn id_exists<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
                     executor: __CrudlyE,
-                ) -> ::sqlx::Result<bool>
+                ) -> impl Future<Output = ::sqlx::Result<bool>> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::id_exists::<Self, _>(id, executor).await
+                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::id_exists::<Self, _>(id, executor).await }
                 }
 
-                async fn select_by_id<'__crudly_c, __CrudlyE>(
+                fn select_by_id<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
                     executor: __CrudlyE,
-                ) -> ::sqlx::Result<::std::option::Option<Self>>
+                ) -> impl Future<Output = ::sqlx::Result<::std::option::Option<Self>>> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_by_id::<Self, _>(id, executor).await
+                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_by_id::<Self, _>(id, executor).await }
                 }
 
-                async fn update_by_id<'__crudly_c, __CrudlyE>(
+                fn update_by_id<'__crudly_c, __CrudlyE>(
                     self,
                     executor: __CrudlyE,
-                ) -> Self::UpdateByIdResult
+                ) -> impl Future<Output = Self::UpdateByIdResult> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
-                    <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self, _>(self, executor).await
+                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self, _>(self, executor).await }
                 }
             }
 

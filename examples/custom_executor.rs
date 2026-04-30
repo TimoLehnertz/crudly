@@ -27,9 +27,9 @@ impl CRUDExecutor<Sqlite> for ExecutorWithTheAnswerToEverything {
     type UpdateByIdResult = sqlx::Result<bool>;
     type DeleteByIdResult = sqlx::Result<bool>;
 
-    async fn insert_returning_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
+    async fn insert_returning_id<'e, 'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
     where
-        E: Executor<'c, Database = Sqlite>,
+        E: 'e + Executor<'c, Database = Sqlite>,
         S: BindRow<Sqlite> + DBAssignedId,
     {
         let _ = generic_insert_returning_id::<S, Sqlite>(executor, entity).await?;

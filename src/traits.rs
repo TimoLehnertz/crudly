@@ -80,7 +80,10 @@ pub trait Crudly<DB: Database>: Sized {
     where
         E: Executor<'c, Database = DB>;
 
-    fn id_exists<'c, E>(id: &Self::Id, executor: E) -> impl Future<Output = sqlx::Result<bool>>
+    fn id_exists<'c, E>(
+        id: &Self::Id,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = DB>;
 
@@ -102,7 +105,7 @@ pub trait InsertWithoutId<DB: Database>: Sized {
     /// One might want to implement this in a way that returns all the inserted ids.
     type InsertManyResult;
 
-    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>>
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
         E: Executor<'c, Database = DB>;
 

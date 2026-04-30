@@ -93,9 +93,9 @@ impl CRUDExecutor<Postgres> for DefaultCRUDExecutor {
         generic_insert_with_id::<S, Postgres>(executor, entity).await
     }
 
-    async fn insert_returning_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
+    async fn insert_returning_id<'e, 'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
     where
-        E: Executor<'c, Database = Postgres>,
+        E: 'e + Executor<'c, Database = Postgres>,
         S: BindRow<Postgres> + DBAssignedId,
     {
         pg_insert(entity, executor).await

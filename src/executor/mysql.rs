@@ -70,9 +70,9 @@ impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
         generic_insert_with_id::<S, MySql>(executor, entity).await
     }
 
-    async fn insert_returning_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
+    async fn insert_returning_id<'e, 'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
     where
-        E: Executor<'c, Database = MySql>,
+        E: 'e + Executor<'c, Database = MySql>,
         S: BindRow<MySql> + DBAssignedId,
     {
         generic_insert_returning_id::<S, MySql>(executor, entity).await
