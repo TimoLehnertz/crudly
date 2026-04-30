@@ -364,14 +364,14 @@ impl CrudlyParsed {
                     {
                         type InsertResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertWithIdResult;
 
-                        async fn insert<'__crudly_c, __CrudlyE>(
+                        fn insert<'__crudly_c, __CrudlyE>(
                             self,
                             executor: __CrudlyE,
-                        ) -> Self::InsertResult
+                        ) -> impl Future<Output = Self::InsertResult> + Send
                         where
                             __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                         {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self, _>(self, executor).await
+                            async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self, _>(self, executor).await }
                         }
 
                         async fn insert_many<'__crudly_c, __CrudlyE>(

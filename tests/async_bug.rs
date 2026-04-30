@@ -1,6 +1,6 @@
 use crudly::{
-    CRUDExecutor, Crudly, DefaultCRUDExecutor, FormatPlaceholder, InsertWithoutId, IntoRow,
-    LastInsertedRowId, Schema,
+    CRUDExecutor, Crudly, DefaultCRUDExecutor, FormatPlaceholder, InsertWithId, InsertWithoutId,
+    IntoRow, LastInsertedRowId, Schema,
 };
 use sqlx::{Database, Executor, IntoArguments, prelude::FromRow};
 
@@ -56,6 +56,14 @@ pub struct User {
     pub name: String,
 }
 
+#[derive(FromRow, IntoRow, Crudly, Default)]
+#[crudly(external_ids)]
+pub struct UserExternalIds {
+    #[crudly(id)]
+    pub id: i64,
+    pub name: String,
+}
+
 /// Thisn used to not compile with the very unhelpful error: lifetime bound not satisfied
 /// this is a known limitation that will be removed in the future (see issue #100013 <https://github.com/rust-lang/rust/issues/100013> for more information)
 /// The compiler error finally was resolved by making the Crudly derive macro
@@ -65,6 +73,7 @@ async fn _should_compile(pool: sqlx::SqlitePool) {
         let mut con = pool.acquire().await.unwrap();
 
         User::default().insert(&mut *con).await.unwrap();
+        UserExternalIds::default().insert(&mut *con).await.unwrap();
         User::default().update_by_id(&mut *con).await.unwrap();
         User::delete_by_id(&1, &mut *con).await.unwrap();
         User::id_exists(&1, &mut *con).await.unwrap();
