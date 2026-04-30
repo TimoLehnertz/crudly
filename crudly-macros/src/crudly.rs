@@ -330,7 +330,7 @@ impl CrudlyParsed {
                         fn insert<'__crudly_c, __CrudlyE>(
                             self,
                             executor: __CrudlyE,
-                        ) -> impl Future<Output = ::sqlx::Result<i64>> + Send
+                        ) -> impl ::core::future::Future<Output = ::sqlx::Result<i64>> + Send
                         where
                             __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                         {
@@ -367,7 +367,7 @@ impl CrudlyParsed {
                         fn insert<'__crudly_c, __CrudlyE>(
                             self,
                             executor: __CrudlyE,
-                        ) -> impl Future<Output = Self::InsertResult> + Send
+                        ) -> impl ::core::future::Future<Output = Self::InsertResult> + Send
                         where
                             __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                         {
@@ -399,7 +399,7 @@ impl CrudlyParsed {
 
                 fn select_all<'__crudly_c, __CrudlyE>(
                     executor: __CrudlyE,
-                ) -> impl Future<Output = ::sqlx::Result<::std::vec::Vec<Self>>> + Send
+                ) -> impl ::core::future::Future<Output = ::sqlx::Result<::std::vec::Vec<Self>>> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
@@ -409,7 +409,7 @@ impl CrudlyParsed {
                 fn delete_by_id<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
                     executor: __CrudlyE,
-                ) -> impl Future<Output = Self::DeleteByIdResult> + Send
+                ) -> impl ::core::future::Future<Output = Self::DeleteByIdResult> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
@@ -419,7 +419,7 @@ impl CrudlyParsed {
                 fn id_exists<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
                     executor: __CrudlyE,
-                ) -> impl Future<Output = ::sqlx::Result<bool>> + Send
+                ) -> impl ::core::future::Future<Output = ::sqlx::Result<bool>> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
@@ -429,7 +429,7 @@ impl CrudlyParsed {
                 fn select_by_id<'__crudly_c, __CrudlyE>(
                     id: &Self::Id,
                     executor: __CrudlyE,
-                ) -> impl Future<Output = ::sqlx::Result<::std::option::Option<Self>>> + Send
+                ) -> impl ::core::future::Future<Output = ::sqlx::Result<::std::option::Option<Self>>> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
@@ -439,7 +439,7 @@ impl CrudlyParsed {
                 fn update_by_id<'__crudly_c, __CrudlyE>(
                     self,
                     executor: __CrudlyE,
-                ) -> impl Future<Output = Self::UpdateByIdResult> + Send
+                ) -> impl ::core::future::Future<Output = Self::UpdateByIdResult> + Send
                 where
                     __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
                 {
