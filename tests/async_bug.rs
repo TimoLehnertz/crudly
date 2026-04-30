@@ -71,7 +71,7 @@ async fn _should_compile(pool: sqlx::SqlitePool) {
         User::select_all(&mut *con).await.unwrap();
         User::select_by_id(&1, &mut *con).await.unwrap();
 
-        // The fix is not applied for insert_many because it didn't work there for reasons...
+        // The fix is not applied for insert_many because it didn't work there for god knows why...
         // User::insert_many(vec![User::default()], 10, &pool)
         //     .await
         //     .unwrap();
