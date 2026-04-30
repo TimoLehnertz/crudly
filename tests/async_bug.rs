@@ -1,13 +1,11 @@
 use crudly::{
     CRUDExecutor, Crudly, DefaultCRUDExecutor, FormatPlaceholder, InsertWithoutId, IntoRow,
-    LastInsertedRowId, Schema, generic_insert_returning_id,
+    LastInsertedRowId, Schema,
 };
-use sqlx::{
-    Connection, Database, Encode, Executor, IntoArguments, Sqlite, SqliteConnection, SqlitePool,
-    SqliteTransaction, Type, pool::PoolConnection, prelude::FromRow,
-};
+use sqlx::{Database, Executor, IntoArguments, prelude::FromRow};
 
 #[derive(IntoRow, Schema)]
+#[allow(dead_code)]
 struct Bar {
     #[crudly(id)]
     pub id: i64,
