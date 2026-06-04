@@ -1,5 +1,6 @@
 use crate::BindRow;
 use crate::Schema;
+use crate::executor::reusable_executor::ReusableExecutor;
 use sqlx::{
     Arguments, Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as,
     query_with,
@@ -156,13 +157,13 @@ where
 ///
 /// When `batch_size` is `0`, runs a single `INSERT` for all rows. Otherwise splits into multiple
 /// statements of at most `batch_size` rows each.
-pub async fn generic_insert_many_without_id<'c, S, DB, E>(
-    executor: E,
+pub async fn generic_insert_many_without_id<S, DB, E>(
+    mut executor: E,
     entities: Vec<S>,
     batch_size: usize,
 ) -> sqlx::Result<()>
 where
-    E: Executor<'c, Database = DB> + Clone,
+    E: ReusableExecutor<DB>,
     DB: Database + FormatPlaceholder,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -180,7 +181,6 @@ where
 
     let cols_per_row = S::columns().len();
 
-    let exec = executor.clone();
     let mut rest = entities;
 
     while !rest.is_empty() {
@@ -189,7 +189,8 @@ where
         } else {
             batch_size.min(rest.len())
         };
-        let remainder = rest.split_off(chunk_len);
+        let chunk = rest.split_off(chunk_len);
+        let chunk_entities = std::mem::replace(&mut rest, chunk);
 
         let mut placeholder_idx = 0;
         let mut value_tuples = Vec::with_capacity(chunk_len);
@@ -211,11 +212,10 @@ where
         );
 
         let mut arguments = DB::Arguments::default();
-        for entity in rest {
+        for entity in chunk_entities {
             entity.bind_arguments(&mut arguments)?;
         }
-        query_with(&sql, arguments).execute(exec.clone()).await?;
-        rest = remainder;
+        executor.execute_query_with(&sql, arguments).await?;
     }
 
     Ok(())
@@ -226,13 +226,13 @@ where
 /// When `batch_size` is `0`, runs a single `INSERT` for all rows. Otherwise splits into multiple
 /// statements of at most `batch_size` rows each.
 pub async fn generic_insert_many_with_id<'c, S, DB, E>(
-    executor: E,
+    mut executor: E,
     entities: Vec<S>,
     batch_size: usize,
 ) -> sqlx::Result<()>
 where
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    E: Executor<'c, Database = DB> + Clone,
+    E: ReusableExecutor<DB> + Send,
     DB: Database + FormatPlaceholder,
     S: BindRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
@@ -246,7 +246,6 @@ where
 
     let cols_per_row = S::columns().len() + 1; // +1 for the id column
 
-    let exec = executor.clone();
     let mut rest = entities;
 
     while !rest.is_empty() {
@@ -281,7 +280,7 @@ where
             arguments.add(entity.id()).map_err(sqlx::Error::Encode)?;
             entity.bind_arguments(&mut arguments)?;
         }
-        query_with(&sql, arguments).execute(exec.clone()).await?;
+        executor.execute_query_with(&sql, arguments).await?;
         rest = remainder;
     }
 
@@ -356,4 +355,87 @@ where
     let result = query(&sql).bind(id).execute(executor).await?;
 
     Ok(result.rows_affected() > 0)
+}
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use crate::{HasColumns, IntoRow};
+    use sqlx::{Sqlite, SqliteConnection, SqlitePool};
+
+    pub struct Dummy;
+
+    impl HasColumns for Dummy {
+        fn columns() -> Vec<&'static str> {
+            unimplemented!()
+        }
+    }
+
+    impl IntoRow<Sqlite> for Dummy {
+        fn bind_arguments<'q>(
+            self,
+            _arguments: &mut <Sqlite as Database>::Arguments<'q>,
+        ) -> sqlx::Result<()> {
+            unimplemented!()
+        }
+    }
+
+    impl Schema<Sqlite> for Dummy {
+        type Id = i64;
+
+        fn id(&self) -> Self::Id {
+            unimplemented!()
+        }
+
+        fn id_column() -> &'static str {
+            unimplemented!()
+        }
+
+        fn table_name() -> &'static str {
+            unimplemented!()
+        }
+    }
+
+    // impl BindRow<Sqlite> for Dummy {}
+
+    // tests that the generic_insert_many_without_id can be used with all common implementors of [sqlx::Executor]
+
+    #[allow(dead_code)]
+    async fn test_exec_pool_owned(pool: SqlitePool) {
+        generic_insert_many_without_id(&pool, vec![Dummy], 0)
+            .await
+            .unwrap();
+    }
+
+    #[allow(dead_code)]
+    async fn test_exec_pool_borrowed(pool: &SqlitePool) {
+        generic_insert_many_without_id(pool, vec![Dummy], 0)
+            .await
+            .unwrap();
+
+        generic_insert_many_without_id(pool, vec![Dummy], 0)
+            .await
+            .unwrap();
+    }
+
+    #[allow(dead_code)]
+    async fn test_exec_pool_exclusive(pool: &mut SqlitePool) {
+        generic_insert_many_without_id(&mut *pool, vec![Dummy], 0)
+            .await
+            .unwrap();
+
+        generic_insert_many_without_id(&mut *pool, vec![Dummy], 0)
+            .await
+            .unwrap();
+    }
+
+    #[allow(dead_code)]
+    async fn test_exec_con(con: &mut SqliteConnection) {
+        generic_insert_many_without_id(&mut *con, vec![Dummy], 100)
+            .await
+            .unwrap();
+
+        generic_insert_many_without_id(&mut *con, vec![Dummy], 100)
+            .await
+            .unwrap();
+    }
 }

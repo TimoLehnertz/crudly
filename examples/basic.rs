@@ -5,7 +5,7 @@ use sqlx::{FromRow, SqlitePool, query};
 const CREATE_USERS_TABLE_SQL: &str =
     "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL);";
 
-#[derive(FromRow, IntoRow, Crudly)]
+#[derive(FromRow, IntoRow, Crudly, Default)]
 struct User {
     #[crudly(id)]
     pub id: i64,

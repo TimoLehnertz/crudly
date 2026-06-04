@@ -1,3 +1,4 @@
+use crate::executor::reusable_executor::ReusableExecutor;
 use crate::executor::{
     generic_delete_by_id, generic_insert_many_without_id, generic_insert_returning_id,
     generic_insert_with_id, generic_update_by_id,
@@ -78,25 +79,25 @@ impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
         generic_insert_returning_id::<S, MySql>(executor, entity).await
     }
 
-    async fn insert_many_without_id<'c, S, E>(
+    async fn insert_many_without_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = MySql> + Clone,
+        E: ReusableExecutor<MySql> + Send,
         S: BindRow<MySql> + DBAssignedId,
     {
         generic_insert_many_without_id::<S, MySql, _>(executor, entities, batch_size).await
     }
 
-    async fn insert_many_with_id<'c, S, E>(
+    async fn insert_many_with_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = MySql> + Clone,
+        E: ReusableExecutor<MySql> + Send,
         S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
         S: BindRow<MySql> + ExternallyAssignedId,
     {

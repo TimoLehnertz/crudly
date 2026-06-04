@@ -337,13 +337,13 @@ impl CrudlyParsed {
                             async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self, _>(self, executor).await }
                         }
 
-                        async fn insert_many<'__crudly_c, __CrudlyE>(
+                        async fn insert_many<__CrudlyE>(
                             entities: ::std::vec::Vec<Self>,
                             batch_size: usize,
                             executor: __CrudlyE,
                         ) -> Self::InsertManyResult
                         where
-                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty> + ::core::clone::Clone,
+                            __CrudlyE: ::crudly::ReusableExecutor<#db_ty> + Send,
                         {
                             <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_without_id::<Self, _>(entities, batch_size, executor).await
                         }
@@ -374,13 +374,13 @@ impl CrudlyParsed {
                             async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self, _>(self, executor).await }
                         }
 
-                        async fn insert_many<'__crudly_c, __CrudlyE>(
+                        async fn insert_many<__CrudlyE>(
                             entities: ::std::vec::Vec<Self>,
                             batch_size: usize,
                             executor: __CrudlyE,
                         ) -> ::sqlx::Result<()>
                         where
-                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty> + ::core::clone::Clone,
+                            __CrudlyE: ::crudly::ReusableExecutor<#db_ty> + Send,
                         {
                             <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_with_id::<Self, _>(entities, batch_size, executor).await
                         }

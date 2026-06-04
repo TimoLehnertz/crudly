@@ -1,7 +1,7 @@
 //! This file is a sandbox for testing what the derived code should look like.
 use crudly::{
     BindRow, CRUDExecutor, Crudly, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
-    HasColumns, InsertWithId, InsertWithoutId, IntoRow, Schema,
+    HasColumns, InsertWithId, InsertWithoutId, IntoRow, ReusableExecutor, Schema,
 };
 use serde::Serialize;
 use sqlx::sqlite::{Sqlite, SqlitePool};
@@ -167,13 +167,9 @@ where
         .await
     }
 
-    async fn insert_many<'c, E>(
-        entities: Vec<Self>,
-        batch_size: usize,
-        executor: E,
-    ) -> sqlx::Result<()>
+    async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = Sqlite> + Clone,
+        E: ReusableExecutor<Sqlite> + Send,
     {
         <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_without_id::<Self, _>(
             entities, batch_size, executor,
@@ -199,13 +195,9 @@ where
             .await
     }
 
-    async fn insert_many<'c, E>(
-        entities: Vec<Self>,
-        batch_size: usize,
-        executor: E,
-    ) -> sqlx::Result<()>
+    async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = Sqlite> + Clone,
+        E: ReusableExecutor<Sqlite> + Send,
     {
         <DefaultCRUDExecutor as CRUDExecutor<Sqlite>>::insert_many_with_id::<Self, _>(
             entities, batch_size, executor,

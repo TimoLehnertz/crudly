@@ -1,5 +1,7 @@
 use sqlx::{Database, Executor};
 
+use crate::ReusableExecutor;
+
 /// Column list for a row mapping. Split out so callers can use `Self::columns()` unambiguously
 /// when [`IntoRow`] is implemented for several [`Database`] types.
 pub trait HasColumns {
@@ -110,13 +112,13 @@ pub trait InsertWithoutId<DB: Database>: Sized {
         E: Executor<'c, Database = DB>;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
-    fn insert_many<'c, E>(
+    fn insert_many<E>(
         entities: Vec<Self>,
         batch_size: usize,
         executor: E,
     ) -> impl Future<Output = Self::InsertManyResult>
     where
-        E: Executor<'c, Database = DB> + Clone;
+        E: ReusableExecutor<DB> + Send;
 }
 
 pub trait InsertWithId<DB: Database>: Sized {
@@ -129,13 +131,13 @@ pub trait InsertWithId<DB: Database>: Sized {
         E: Executor<'c, Database = DB>;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
-    fn insert_many<'c, E>(
+    fn insert_many<E>(
         entities: Vec<Self>,
         batch_size: usize,
         executor: E,
     ) -> impl Future<Output = sqlx::Result<()>>
     where
-        E: Executor<'c, Database = DB> + Clone;
+        E: ReusableExecutor<DB> + Send;
 }
 
 // todo: add delete_many

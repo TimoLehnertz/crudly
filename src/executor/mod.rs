@@ -3,6 +3,8 @@ use sqlx::{Database, Encode, Executor, FromRow, Type};
 use std::future::Future;
 
 mod generic;
+pub mod reusable_executor;
+pub use reusable_executor::ReusableExecutor;
 
 #[cfg(feature = "mysql")]
 mod mysql;
@@ -75,23 +77,23 @@ pub trait CRUDExecutor<DB: Database> {
         S: BindRow<DB> + DBAssignedId;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for the full input.
-    fn insert_many_without_id<'c, S, E>(
+    fn insert_many_without_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> impl Future<Output = Self::InsertManyWithoutIdResult> + Send
     where
-        E: Executor<'c, Database = DB> + Clone,
+        E: ReusableExecutor<DB> + Send,
         S: BindRow<DB> + DBAssignedId;
 
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for the full input.
-    fn insert_many_with_id<'c, S, E>(
+    fn insert_many_with_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> impl Future<Output = sqlx::Result<()>> + Send
     where
-        E: Executor<'c, Database = DB> + Clone,
+        E: ReusableExecutor<DB> + Send,
         S::Id: for<'q> Encode<'q, DB> + Type<DB>,
         S: BindRow<DB> + ExternallyAssignedId;
 

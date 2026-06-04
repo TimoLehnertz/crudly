@@ -4,7 +4,8 @@
 use std::sync::Mutex;
 
 use crudly::{
-    BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId, Schema,
+    BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
+    ReusableExecutor, Schema,
 };
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Encode, Executor, FromRow, Sqlite, Type};
@@ -81,13 +82,13 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         DefaultCRUDExecutor::insert_returning_id::<S, _>(entity, executor).await
     }
 
-    async fn insert_many_without_id<'c, S, E>(
+    async fn insert_many_without_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = Sqlite> + Clone,
+        E: ReusableExecutor<Sqlite> + Send,
         S: BindRow<Sqlite> + DBAssignedId,
     {
         log("insert_many_without_id");
@@ -97,13 +98,13 @@ impl CRUDExecutor<Sqlite> for MockCrudExecutor {
         .await
     }
 
-    async fn insert_many_with_id<'c, S, E>(
+    async fn insert_many_with_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = Sqlite> + Clone,
+        E: ReusableExecutor<Sqlite> + Send,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: BindRow<Sqlite> + ExternallyAssignedId,
     {

@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 use crudly::{
     BindRow, CRUDExecutor, Crudly, DBAssignedId, ExternallyAssignedId, InsertWithoutId, IntoRow,
-    Schema, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
+    ReusableExecutor, Schema, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
     generic_insert_many_without_id, generic_insert_returning_id, generic_insert_with_id,
     generic_select_all, generic_select_by_id, generic_update_by_id,
 };
@@ -37,25 +37,25 @@ impl CRUDExecutor<Sqlite> for ExecutorWithTheAnswerToEverything {
         Ok(42)
     }
 
-    async fn insert_many_without_id<'c, S, E>(
+    async fn insert_many_without_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = Sqlite> + Clone,
+        E: ReusableExecutor<Sqlite> + Send,
         S: BindRow<Sqlite> + DBAssignedId,
     {
         generic_insert_many_without_id::<S, Sqlite, _>(executor, entities, batch_size).await
     }
 
-    async fn insert_many_with_id<'c, S, E>(
+    async fn insert_many_with_id<S, E>(
         entities: Vec<S>,
         batch_size: usize,
         executor: E,
     ) -> sqlx::Result<()>
     where
-        E: Executor<'c, Database = Sqlite> + Clone,
+        E: ReusableExecutor<Sqlite> + Send,
         S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
         S: BindRow<Sqlite> + ExternallyAssignedId,
     {
