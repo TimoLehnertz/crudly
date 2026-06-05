@@ -4,12 +4,13 @@ use crate::executor::{
     generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
-    BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
-    FormatPlaceholder, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
+    BindRow, Crudly, CrudlyDefault, DBAssignedId, ExternallyAssignedId, FormatPlaceholder,
+    InsertWithId, InsertWithoutId, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
     generic_insert_many_with_id, generic_select_all, generic_select_by_id,
 };
 use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
 use sqlx::{Encode, Executor, FromRow, Sqlite, Type};
+use std::future::Future;
 
 impl FormatPlaceholder for Sqlite {
     fn format_placeholder(_idx: usize) -> String {
@@ -29,96 +30,110 @@ impl LastInsertedRowId for SqliteQueryResult {
     }
 }
 
-impl CRUDExecutor<Sqlite> for DefaultCRUDExecutor {
-    type InsertWithIdResult = sqlx::Result<()>;
-    type UpdateByIdResult = sqlx::Result<bool>;
-    type DeleteByIdResult = sqlx::Result<bool>;
-    type InsertManyWithoutIdResult = sqlx::Result<()>;
+impl<T> Crudly<Sqlite> for T
+where
+    T: CrudlyDefault<Sqlite>
+        + Schema<Sqlite>
+        + BindRow<Sqlite>
+        + for<'r> FromRow<'r, SqliteRow>
+        + Unpin,
+    for<'q> <T as Schema<Sqlite>>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
+{
+    type Id = <Self as Schema<Sqlite>>::Id;
 
-    async fn select_all<'c, S, E>(executor: E) -> sqlx::Result<Vec<S>>
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>>
     where
         E: Executor<'c, Database = Sqlite>,
-        S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
     {
-        generic_select_all(executor).await
+        async { generic_select_all(executor).await }
     }
 
-    async fn select_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<Option<S>>
+    fn select_by_id<'c, E>(
+        id: &Self::Id,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<Option<Self>>>
     where
         E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
     {
-        generic_select_by_id(executor, id).await
+        async { generic_select_by_id(executor, id).await }
     }
 
-    async fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
+    fn id_exists<'c, E>(
+        id: &Self::Id,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: Schema<Sqlite>,
     {
-        generic_id_exists::<S, Sqlite>(executor, id).await
+        async { generic_id_exists::<Self, Sqlite>(executor, id).await }
     }
 
-    async fn insert_with_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<()>
+    fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>>
     where
         E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite> + 'static,
-        S: BindRow<Sqlite> + ExternallyAssignedId,
     {
-        generic_insert_with_id::<S, Sqlite>(executor, entity).await
+        async { generic_update_by_id(executor, self).await }
     }
 
-    async fn insert_returning_id<'e, 'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
+    fn delete_by_id<'c, E>(id: &Self::Id, executor: E) -> impl Future<Output = sqlx::Result<bool>>
     where
-        'c: 'e,
-        E: 'e + Executor<'c, Database = Sqlite>,
-        S: BindRow<Sqlite> + DBAssignedId,
+        E: Executor<'c, Database = Sqlite>,
     {
-        generic_insert_returning_id::<S, Sqlite>(executor, entity).await
+        async { generic_delete_by_id::<Self, Sqlite>(executor, id).await }
+    }
+}
+
+impl<T> InsertWithoutId<Sqlite> for T
+where
+    T: CrudlyDefault<Sqlite> + Schema<Sqlite> + BindRow<Sqlite> + DBAssignedId,
+{
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        async { generic_insert_returning_id::<Self, Sqlite>(executor, self).await }
     }
 
-    async fn insert_many_without_id<S, E>(
-        entities: Vec<S>,
+    fn insert_many<E>(
+        entities: Vec<Self>,
         batch_size: usize,
         executor: E,
-    ) -> sqlx::Result<()>
+    ) -> impl Future<Output = sqlx::Result<()>> + Send
     where
         E: ReusableExecutor<Sqlite> + Send,
-        S: BindRow<Sqlite> + DBAssignedId,
     {
-        generic_insert_many_without_id::<S, Sqlite, _>(executor, entities, batch_size).await
+        // This can't be refactored to an async fn because that triggers the following when used in certain scenarios:
+        // lifetime bound not satisfied
+        // this is a known limitation that will be removed in the future (see issue #100013 <https://github.com/rust-lang/rust/issues/100013> for more information)
+        async move {
+            generic_insert_many_without_id::<Self, Sqlite, _>(executor, entities, batch_size).await
+        }
+    }
+}
+
+impl<T> InsertWithId<Sqlite> for T
+where
+    T: CrudlyDefault<Sqlite> + Schema<Sqlite> + BindRow<Sqlite> + ExternallyAssignedId,
+    for<'q> <T as Schema<Sqlite>>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
+    <T as Schema<Sqlite>>::Id: 'static,
+{
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        async { generic_insert_with_id::<Self, Sqlite>(executor, self).await }
     }
 
-    async fn insert_many_with_id<S, E>(
-        entities: Vec<S>,
+    fn insert_many<E>(
+        entities: Vec<Self>,
         batch_size: usize,
         executor: E,
-    ) -> sqlx::Result<()>
+    ) -> impl Future<Output = sqlx::Result<()>>
     where
         E: ReusableExecutor<Sqlite> + Send,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: BindRow<Sqlite> + ExternallyAssignedId,
     {
-        generic_insert_many_with_id::<S, Sqlite, _>(executor, entities, batch_size).await
-    }
-
-    async fn update_by_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: BindRow<Sqlite>,
-    {
-        generic_update_by_id(executor, entity).await
-    }
-
-    async fn delete_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: Schema<Sqlite>,
-    {
-        generic_delete_by_id::<S, Sqlite>(executor, id).await
+        async move {
+            generic_insert_many_with_id::<Self, Sqlite, _>(executor, entities, batch_size).await
+        }
     }
 }

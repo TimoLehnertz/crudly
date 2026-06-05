@@ -1,21 +1,23 @@
-use crudly::{Crudly, InsertWithId, InsertWithoutId, IntoRow};
-use sqlx::{SqlitePool, prelude::FromRow, query};
+use crudly::{Crudly, CrudlyDefault, InsertWithId, InsertWithoutId, IntoRow, Schema};
+use sqlx::{Sqlite, SqlitePool, prelude::FromRow, query};
 
-#[derive(FromRow, IntoRow, Crudly, Default, Clone, PartialEq, Debug)]
+#[derive(FromRow, IntoRow, Schema, Default, Clone, PartialEq, Debug)]
 #[crudly(table = "users")]
 pub struct UserInternalID {
     #[crudly(id)]
     pub id: i64,
     pub name: String,
 }
+impl CrudlyDefault<Sqlite> for UserInternalID {}
 
-#[derive(FromRow, IntoRow, Crudly, Default, Clone, PartialEq, Debug)]
+#[derive(FromRow, IntoRow, Schema, Default, Clone, PartialEq, Debug)]
 #[crudly(external_ids, table = "users")]
 pub struct UserExternalID {
     #[crudly(id)]
     pub id: i64,
     pub name: String,
 }
+impl CrudlyDefault<Sqlite> for UserExternalID {}
 
 async fn sqlite_mem() -> SqlitePool {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();

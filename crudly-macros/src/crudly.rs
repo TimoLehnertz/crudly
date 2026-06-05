@@ -1,13 +1,10 @@
-use crate::derive_attr::input_derives;
 use crate::into_row;
 use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::quote;
 use std::collections::HashSet;
-use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::token::Comma;
-use syn::{Data, DeriveInput, Fields, LitStr, Type, WherePredicate, parse_quote};
+use syn::{Data, DeriveInput, Fields, LitStr, parse_quote};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum IdStrategy {
@@ -18,7 +15,6 @@ enum IdStrategy {
 struct CrudlyAttrs {
     table: Option<String>,
     id_strategy: IdStrategy,
-    executor: Option<Type>,
 }
 
 fn pluralize_ascii_identifier_base(snake_singular: &str) -> String {
@@ -48,7 +44,6 @@ impl CrudlyAttrs {
         let mut table = None;
         let mut db_ids = false;
         let mut external_ids = false;
-        let mut executor = None::<Type>;
 
         for attr in &input.attrs {
             if !attr.path().is_ident("crudly") {
@@ -82,14 +77,10 @@ impl CrudlyAttrs {
                 } else if meta.path.is_ident("external_ids") {
                     merge(&mut seen, "external_ids", path.span())?;
                     external_ids = true;
-                } else if meta.path.is_ident("executor") {
-                    merge(&mut seen, "executor", path.span())?;
-                    meta.input.parse::<syn::Token![=]>()?;
-                    executor = Some(meta.input.parse()?);
                 } else {
                     return Err(syn::Error::new_spanned(
                         path,
-                        "unknown `#[crudly(...)]` for `Crudly` or `Schema` (expected table, db_ids, external_ids, executor)",
+                        "unknown `#[crudly(...)]` for `Schema` (expected table, db_ids, external_ids)",
                     ));
                 }
                 Ok(())
@@ -109,11 +100,7 @@ impl CrudlyAttrs {
             IdStrategy::DbAssigned
         };
 
-        Ok(CrudlyAttrs {
-            table,
-            id_strategy,
-            executor,
-        })
+        Ok(CrudlyAttrs { table, id_strategy })
     }
 }
 
@@ -267,275 +254,9 @@ impl CrudlyParsed {
             #marker_impl
         }
     }
-
-    fn crudly_and_insert_tokens(&self) -> syn::Result<TokenStream> {
-        let CrudlyParsed {
-            attrs,
-            ident,
-            generics,
-            ..
-        } = self;
-
-        let db_ty: TokenStream = quote!(__CrudlyDb);
-
-        let exec_ty: TokenStream = match &attrs.executor {
-            None => quote!(::crudly::DefaultCRUDExecutor),
-            Some(ty) => ty.to_token_stream(),
-        };
-
-        let mut impl_generics = generics.clone();
-        impl_generics
-            .params
-            .insert(0, parse_quote!(__CrudlyDb: ::sqlx::Database));
-        let (impl_gen, _, _) = impl_generics.split_for_impl();
-        let (_, struct_ty_gen, _) = generics.split_for_impl();
-
-        let extend_where = |extra: Vec<WherePredicate>| -> syn::Result<TokenStream> {
-            let mut preds: Punctuated<WherePredicate, Comma> = Punctuated::new();
-            if let Some(w) = &generics.where_clause {
-                for p in w.predicates.iter() {
-                    preds.push(p.clone());
-                }
-            }
-            for p in extra {
-                preds.push(p);
-            }
-            Ok(quote!(where #preds))
-        };
-
-        let insert_exec_pred: WherePredicate =
-            syn::parse2(quote!(#exec_ty: ::crudly::CRUDExecutor<__CrudlyDb>))?;
-
-        let crudly_preds: Vec<WherePredicate> = vec![
-            parse_quote!(Self: ::crudly::Schema<#db_ty> + ::crudly::BindRow<#db_ty>),
-            insert_exec_pred.clone(),
-            parse_quote!(Self: for<'r> ::sqlx::FromRow<'r, <#db_ty as ::sqlx::Database>::Row>),
-            parse_quote!(for<'q> <Self as ::crudly::Schema<#db_ty>>::Id: ::sqlx::Encode<'q, #db_ty> + ::sqlx::Type<#db_ty>),
-        ];
-        let crudly_where = extend_where(crudly_preds)?;
-
-        let insert_impl = match attrs.id_strategy {
-            IdStrategy::DbAssigned => {
-                let insert_where = extend_where(vec![
-                    parse_quote!(Self: ::crudly::Schema<#db_ty> + ::crudly::BindRow<#db_ty>),
-                    insert_exec_pred.clone(),
-                    parse_quote!(Self: ::crudly::DBAssignedId),
-                ])?;
-                quote! {
-                    impl #impl_gen ::crudly::InsertWithoutId<#db_ty> for #ident #struct_ty_gen
-                    #insert_where
-                    {
-                        type InsertManyResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertManyWithoutIdResult;
-
-                        fn insert<'__crudly_c, __CrudlyE>(
-                            self,
-                            executor: __CrudlyE,
-                        ) -> impl ::core::future::Future<Output = ::sqlx::Result<i64>> + Send
-                        where
-                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                        {
-                            async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_returning_id::<Self, _>(self, executor).await }
-                        }
-
-                        async fn insert_many<__CrudlyE>(
-                            entities: ::std::vec::Vec<Self>,
-                            batch_size: usize,
-                            executor: __CrudlyE,
-                        ) -> Self::InsertManyResult
-                        where
-                            __CrudlyE: ::crudly::ReusableExecutor<#db_ty> + Send,
-                        {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_without_id::<Self, _>(entities, batch_size, executor).await
-                        }
-                    }
-                }
-            }
-            IdStrategy::External => {
-                let insert_where = extend_where(vec![
-                    parse_quote!(<Self as ::crudly::Schema<#db_ty>>::Id: ::sqlx::Type<#db_ty>),
-                    parse_quote!(for<'q> <Self as ::crudly::Schema<#db_ty>>::Id: ::sqlx::Encode<'q, #db_ty>),
-                    parse_quote!(Self: ::crudly::Schema<#db_ty> + ::crudly::BindRow<#db_ty>),
-                    insert_exec_pred,
-                    parse_quote!(Self: ::crudly::ExternallyAssignedId),
-                ])?;
-                quote! {
-                    impl #impl_gen ::crudly::InsertWithId<#db_ty> for #ident #struct_ty_gen
-                    #insert_where
-                    {
-                        type InsertResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::InsertWithIdResult;
-
-                        fn insert<'__crudly_c, __CrudlyE>(
-                            self,
-                            executor: __CrudlyE,
-                        ) -> impl ::core::future::Future<Output = Self::InsertResult> + Send
-                        where
-                            __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                        {
-                            async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_with_id::<Self, _>(self, executor).await }
-                        }
-
-                        async fn insert_many<__CrudlyE>(
-                            entities: ::std::vec::Vec<Self>,
-                            batch_size: usize,
-                            executor: __CrudlyE,
-                        ) -> ::sqlx::Result<()>
-                        where
-                            __CrudlyE: ::crudly::ReusableExecutor<#db_ty> + Send,
-                        {
-                            <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::insert_many_with_id::<Self, _>(entities, batch_size, executor).await
-                        }
-                    }
-                }
-            }
-        };
-
-        Ok(quote! {
-            impl #impl_gen ::crudly::Crudly<#db_ty> for #ident #struct_ty_gen
-            #crudly_where
-            {
-                type Id = <Self as ::crudly::Schema<#db_ty>>::Id;
-                type UpdateByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::UpdateByIdResult;
-                type DeleteByIdResult = <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::DeleteByIdResult;
-
-                fn select_all<'__crudly_c, __CrudlyE>(
-                    executor: __CrudlyE,
-                ) -> impl ::core::future::Future<Output = ::sqlx::Result<::std::vec::Vec<Self>>> + Send
-                where
-                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                {
-                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_all::<Self, _>(executor).await }
-                }
-
-                fn delete_by_id<'__crudly_c, __CrudlyE>(
-                    id: &Self::Id,
-                    executor: __CrudlyE,
-                ) -> impl ::core::future::Future<Output = Self::DeleteByIdResult> + Send
-                where
-                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                {
-                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::delete_by_id::<Self, _>(id, executor).await }
-                }
-
-                fn id_exists<'__crudly_c, __CrudlyE>(
-                    id: &Self::Id,
-                    executor: __CrudlyE,
-                ) -> impl ::core::future::Future<Output = ::sqlx::Result<bool>> + Send
-                where
-                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                {
-                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::id_exists::<Self, _>(id, executor).await }
-                }
-
-                fn select_by_id<'__crudly_c, __CrudlyE>(
-                    id: &Self::Id,
-                    executor: __CrudlyE,
-                ) -> impl ::core::future::Future<Output = ::sqlx::Result<::std::option::Option<Self>>> + Send
-                where
-                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                {
-                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::select_by_id::<Self, _>(id, executor).await }
-                }
-
-                fn update_by_id<'__crudly_c, __CrudlyE>(
-                    self,
-                    executor: __CrudlyE,
-                ) -> impl ::core::future::Future<Output = Self::UpdateByIdResult> + Send
-                where
-                    __CrudlyE: ::sqlx::Executor<'__crudly_c, Database = #db_ty>,
-                {
-                    async { <#exec_ty as ::crudly::CRUDExecutor<#db_ty>>::update_by_id::<Self, _>(self, executor).await }
-                }
-            }
-
-            #insert_impl
-        })
-    }
 }
 
 pub fn expand_derive_schema(input: DeriveInput) -> syn::Result<TokenStream> {
-    if input_derives(&input, "Crudly") {
-        return Err(syn::Error::new(
-            input.ident.span(),
-            "`#[derive(Schema)]` cannot be used together with `#[derive(Crudly)]`: `Crudly` already implements `Schema` and the id marker (`DBAssignedId` or `ExternallyAssignedId`). Use only one of `Schema` or `Crudly`.",
-        ));
-    }
-
     let parsed = CrudlyParsed::parse(&input, "Schema")?;
     Ok(parsed.schema_and_marker_tokens())
-}
-
-pub fn expand_derive_crudly(input: DeriveInput) -> syn::Result<TokenStream> {
-    if input_derives(&input, "Schema") {
-        return Err(syn::Error::new(
-            input.ident.span(),
-            "`#[derive(Crudly)]` cannot be used together with `#[derive(Schema)]`: `Crudly` already implements `Schema` and the id marker (`DBAssignedId` or `ExternallyAssignedId`). Use only one of `Schema` or `Crudly`.",
-        ));
-    }
-
-    let parsed = CrudlyParsed::parse(&input, "Crudly")?;
-    let schema_marker = parsed.schema_and_marker_tokens();
-    let rest = parsed.crudly_and_insert_tokens()?;
-    Ok(quote! {
-        #schema_marker
-        #rest
-    })
-}
-
-#[cfg(test)]
-mod derive_conflict_tests {
-    use super::*;
-    use quote::quote;
-    use syn::parse2;
-
-    fn parse_derive_input(tokens: proc_macro2::TokenStream) -> DeriveInput {
-        parse2(tokens).expect("parse DeriveInput")
-    }
-
-    #[test]
-    fn crudly_errors_if_schema_also_in_derive_list() {
-        let input = parse_derive_input(quote! {
-            #[derive(Crudly, Schema)]
-            struct Foo {
-                #[crudly(id)]
-                id: i64,
-            }
-        });
-        let err = expand_derive_crudly(input).unwrap_err();
-        let msg = err.to_string();
-        assert!(
-            msg.contains("Schema"),
-            "expected message to mention Schema, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn schema_errors_if_crudly_also_in_derive_list() {
-        let input = parse_derive_input(quote! {
-            #[derive(Schema, Crudly)]
-            struct Foo {
-                #[crudly(id)]
-                id: i64,
-            }
-        });
-        let err = expand_derive_schema(input).unwrap_err();
-        let msg = err.to_string();
-        assert!(
-            msg.contains("Crudly"),
-            "expected message to mention Crudly, got: {msg}"
-        );
-    }
-
-    #[test]
-    fn conflict_detected_with_separate_derive_attributes() {
-        let input = parse_derive_input(quote! {
-            #[derive(Crudly)]
-            #[derive(Schema)]
-            struct Foo {
-                #[crudly(id)]
-                id: i64,
-            }
-        });
-        assert!(expand_derive_crudly(input.clone()).is_err());
-        assert!(expand_derive_schema(input).is_err());
-    }
 }

@@ -2,11 +2,11 @@
 //! # Crudly
 //! Derivable crud helpers for sqlx. Write your `SELECT`, `INSERT`, `UPDATE`, and `DELETE` queries once and reuse them for all your entities.
 //!
-//! Provides the `#[derive(IntoRow)]`, `#[derive(Schema)]`, and `#[derive(Crudly)]` macros.
+//! Provides the `#[derive(IntoRow)]` and `#[derive(Schema)]` macros.
 //!
 //! ## Features
 //!
-//! - `derive`: (Default) Enables the `#[derive(Crudly)]`, `#[derive(Schema)]`, and `#[derive(IntoRow)]` macros
+//! - `derive`: (Default) Enables the `#[derive(Schema)]` and `#[derive(IntoRow)]` macros
 //! - `postgres`: Enables default crud implementations for database
 //! - `mysql`: Enables default crud implementations for MySQL
 //! - `sqlite`: Enables default crud implementations for sqlite
@@ -17,14 +17,15 @@
 //!
 //! ```rust
 //! # #[allow(unused_variables)]
-//! # use crudly::{Crudly, InsertWithoutId};
+//! # use crudly::{Crudly, CrudlyDefault, InsertWithoutId};
 //! # use sqlx::{SqlitePool, query};
-//! #[derive(sqlx::FromRow, crudly::IntoRow, crudly::Crudly)]
+//! #[derive(sqlx::FromRow, crudly::IntoRow, crudly::Schema)]
 //! struct User {
 //!     #[crudly(id)]
 //!     id: i64,
 //!     name: String,
 //! }
+//! impl crudly::CrudlyDefault<sqlx::Sqlite> for User {}
 //!
 //! const CREATE_USERS_TABLE_SQL: &str =
 //!     "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL);";
@@ -109,10 +110,10 @@
 //!
 //! ## The `Crudly` trait
 //!
-//! Deriving Crudly enables the following methods: `select_all`, `select_by_id`, `update_by_id`,
-//! `id_exists`, `delete_by_id` and either `insert` or `insert_with_id` (see next section).
-//! For database-assigned ids, [`InsertWithoutId`] is also derived (`insert` and `insert_many`). `batch_size` limits rows
-//! per `INSERT`; use `0` for one statement over all rows.
+//! Implementing [`CrudlyDefault`] for an entity enables blanket default implementations for `Crudly`
+//! plus either [`InsertWithoutId`] or [`InsertWithId`] depending on id strategy.
+//! The provided methods are: `select_all`, `select_by_id`, `update_by_id`, `id_exists`, `delete_by_id`,
+//! and either `insert`/`insert_many` for DB-assigned ids or external ids.
 //!
 //! **Table names:** The table name for an entity can get set by using the `#[crudly(table = "name")]` attribute. If the attribute is not
 //! present, the table name will get inferred from the struct name. The name of the struct in pluralized `snake_case`. (e.g. `User` -> `users`).
@@ -135,22 +136,8 @@
 //! ## Executors
 //!
 //! Crudly provides default implementations for performing the crud operations for sqlite, mysql and postgres.
-//! However you might want to customize their behavior. Add some logging, return a custom error type or even add another Database.
-//! For this purpose crudly provides the `CRUDExecutor` trait. By default crudly will use the `DefaultCRUDExecutor` struct for all crud operations.
-//! you can overwrite this by using the `#[crudly(executor = ...)]` attribute. See the [executor example](https://docs.rs/crate/crudly/latest/source/examples/custom_executor.rs) for more details.
-//!
-//! ```
-//! # #[allow(unused_variables)]
-//! # use crudly::{Crudly, IntoRow, HasColumns, DefaultCRUDExecutor};
-//! # use sqlx::{SqlitePool, query};
-//! #[derive(sqlx::FromRow, crudly::IntoRow, crudly::Crudly)]
-//! #[crudly(executor = DefaultCRUDExecutor)] // <-- Use your custom executor here
-//! struct User {
-//!     #[crudly(id)]
-//!     id: i64,
-//!     user_name: String,
-//! }
-//! ```
+//! If you need custom behavior, define your own local extension trait with blanket impls in your crate,
+//! and delegate to `crudly::generic_*` helpers or your own query code.
 //!
 //! ## MSRV
 //! The minimum supported Rust version is 1.85.0 (the version that released edition 2024).
@@ -163,7 +150,7 @@ mod executor;
 mod traits;
 
 #[cfg(feature = "derive")]
-pub use crudly_macros::{Crudly, IntoRow, Schema};
+pub use crudly_macros::{IntoRow, Schema};
 
 pub use executor::*;
 pub use traits::*;

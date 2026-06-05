@@ -4,13 +4,14 @@ use crate::executor::{
     generic_insert_with_id, generic_update_by_id,
 };
 use crate::{
-    BindRow, CRUDExecutor, DBAssignedId, DefaultCRUDExecutor, ExternallyAssignedId,
-    FormatPlaceholder, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
+    BindRow, Crudly, CrudlyDefault, DBAssignedId, ExternallyAssignedId, FormatPlaceholder,
+    InsertWithId, InsertWithoutId, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
     generic_insert_many_with_id, generic_select_all, generic_select_by_id,
 };
 use sqlx::MySql;
 use sqlx::mysql::{MySqlQueryResult, MySqlRow};
 use sqlx::{Encode, Executor, FromRow, Type};
+use std::future::Future;
 
 impl FormatPlaceholder for MySql {
     fn format_placeholder(_idx: usize) -> String {
@@ -30,95 +31,95 @@ impl LastInsertedRowId for MySqlQueryResult {
     }
 }
 
-impl CRUDExecutor<MySql> for DefaultCRUDExecutor {
-    type InsertWithIdResult = sqlx::Result<()>;
-    type UpdateByIdResult = sqlx::Result<bool>;
-    type DeleteByIdResult = sqlx::Result<bool>;
-    type InsertManyWithoutIdResult = sqlx::Result<()>;
+impl<T> Crudly<MySql> for T
+where
+    T: CrudlyDefault<MySql>
+        + Schema<MySql>
+        + BindRow<MySql>
+        + for<'r> FromRow<'r, MySqlRow>
+        + Unpin,
+    for<'q> <T as Schema<MySql>>::Id: Encode<'q, MySql> + Type<MySql>,
+{
+    type Id = <Self as Schema<MySql>>::Id;
 
-    async fn select_all<'c, S, E>(executor: E) -> sqlx::Result<Vec<S>>
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>>
     where
         E: Executor<'c, Database = MySql>,
-        S: Schema<MySql> + for<'r> FromRow<'r, MySqlRow> + Unpin,
     {
-        generic_select_all(executor).await
+        async { generic_select_all(executor).await }
     }
 
-    async fn select_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<Option<S>>
-    where
-        E: Executor<'c, Database = MySql>,
-        S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
-        S: Schema<MySql> + for<'r> FromRow<'r, MySqlRow> + Unpin,
-    {
-        generic_select_by_id(executor, id).await
-    }
-
-    async fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = MySql>,
-        S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
-        S: Schema<MySql>,
-    {
-        generic_id_exists::<S, MySql>(executor, id).await
-    }
-
-    async fn insert_with_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<()>
-    where
-        E: Executor<'c, Database = MySql>,
-        S::Id: for<'q> Encode<'q, MySql> + Type<MySql> + 'static,
-        S: BindRow<MySql> + ExternallyAssignedId,
-    {
-        generic_insert_with_id::<S, MySql>(executor, entity).await
-    }
-
-    async fn insert_returning_id<'e, 'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
-    where
-        E: 'e + Executor<'c, Database = MySql>,
-        S: BindRow<MySql> + DBAssignedId,
-    {
-        generic_insert_returning_id::<S, MySql>(executor, entity).await
-    }
-
-    async fn insert_many_without_id<S, E>(
-        entities: Vec<S>,
-        batch_size: usize,
+    fn select_by_id<'c, E>(
+        id: &Self::Id,
         executor: E,
-    ) -> sqlx::Result<()>
+    ) -> impl Future<Output = sqlx::Result<Option<Self>>>
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_select_by_id(executor, id).await }
+    }
+
+    fn id_exists<'c, E>(
+        id: &Self::Id,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<bool>> + Send
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_id_exists::<Self, MySql>(executor, id).await }
+    }
+
+    fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>>
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_update_by_id(executor, self).await }
+    }
+
+    fn delete_by_id<'c, E>(id: &Self::Id, executor: E) -> impl Future<Output = sqlx::Result<bool>>
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_delete_by_id::<Self, MySql>(executor, id).await }
+    }
+}
+
+impl<T> InsertWithoutId<MySql> for T
+where
+    T: CrudlyDefault<MySql> + Schema<MySql> + BindRow<MySql> + DBAssignedId,
+{
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_insert_returning_id::<Self, MySql>(executor, self).await }
+    }
+
+    async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
         E: ReusableExecutor<MySql> + Send,
-        S: BindRow<MySql> + DBAssignedId,
     {
-        generic_insert_many_without_id::<S, MySql, _>(executor, entities, batch_size).await
+        generic_insert_many_without_id::<Self, MySql, _>(executor, entities, batch_size).await
+    }
+}
+
+impl<T> InsertWithId<MySql> for T
+where
+    T: CrudlyDefault<MySql> + Schema<MySql> + BindRow<MySql> + ExternallyAssignedId,
+    for<'q> <T as Schema<MySql>>::Id: Encode<'q, MySql> + Type<MySql>,
+    <T as Schema<MySql>>::Id: 'static,
+{
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>>
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_insert_with_id::<Self, MySql>(executor, self).await }
     }
 
-    async fn insert_many_with_id<S, E>(
-        entities: Vec<S>,
-        batch_size: usize,
-        executor: E,
-    ) -> sqlx::Result<()>
+    async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
         E: ReusableExecutor<MySql> + Send,
-        S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
-        S: BindRow<MySql> + ExternallyAssignedId,
     {
-        generic_insert_many_with_id::<S, MySql, _>(executor, entities, batch_size).await
-    }
-
-    async fn update_by_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = MySql>,
-        S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
-        S: BindRow<MySql>,
-    {
-        generic_update_by_id(executor, entity).await
-    }
-
-    async fn delete_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = MySql>,
-        S::Id: for<'q> Encode<'q, MySql> + Type<MySql>,
-        S: Schema<MySql>,
-    {
-        generic_delete_by_id::<S, MySql>(executor, id).await
+        generic_insert_many_with_id::<Self, MySql, _>(executor, entities, batch_size).await
     }
 }

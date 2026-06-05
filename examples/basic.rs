@@ -1,16 +1,18 @@
 #![allow(unused_variables)]
-use crudly::{Crudly, InsertWithoutId, IntoRow};
-use sqlx::{FromRow, SqlitePool, query};
+use crudly::{Crudly, CrudlyDefault, InsertWithoutId, IntoRow, Schema};
+use sqlx::{FromRow, Sqlite, SqlitePool, query};
 
 const CREATE_USERS_TABLE_SQL: &str =
     "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL);";
 
-#[derive(FromRow, IntoRow, Crudly, Default)]
+#[derive(FromRow, IntoRow, Schema, Default)]
 struct User {
     #[crudly(id)]
     pub id: i64,
     pub name: String,
 }
+
+impl CrudlyDefault<Sqlite> for User {}
 
 #[tokio::main]
 async fn main() {

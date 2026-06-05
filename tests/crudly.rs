@@ -1,22 +1,23 @@
-//! Tests for `#[derive(Crudly)]`.
+//! Tests for `#[derive(Schema)]` and default blanket CRUD impls.
 #![allow(dead_code, unused_variables)]
 
-mod common;
-
-use common::mock_crud_executor::{self as mcx, MockCrudExecutor};
 use common::sqlite;
-use crudly::{Crudly, HasColumns, InsertWithId, InsertWithoutId, IntoRow, Schema};
+use crudly::{Crudly, CrudlyDefault, HasColumns, InsertWithId, InsertWithoutId, IntoRow, Schema};
 use sqlx::FromRow;
 use sqlx::sqlite::Sqlite;
 
+mod common;
+
 #[test]
 fn schema_table_inferred_plural_snake() {
-    #[derive(FromRow, IntoRow, Crudly)]
+    #[derive(FromRow, IntoRow, Schema)]
     struct SimpleRecord {
         #[crudly(id)]
         id: i64,
         name: String,
     }
+    impl CrudlyDefault<Sqlite> for SimpleRecord {}
+
     assert_eq!(
         <SimpleRecord as Schema<Sqlite>>::table_name(),
         "simple_records"
@@ -26,25 +27,27 @@ fn schema_table_inferred_plural_snake() {
 
 #[test]
 fn schema_table_explicit() {
-    #[derive(FromRow, IntoRow, Crudly)]
+    #[derive(FromRow, IntoRow, Schema)]
     #[crudly(table = "widgets")]
     struct RenamedTable {
         #[crudly(id)]
         id: i64,
         flag: bool,
     }
+    impl CrudlyDefault<Sqlite> for RenamedTable {}
 
     assert_eq!(<RenamedTable as Schema<Sqlite>>::table_name(), "widgets");
 }
 
 #[test]
 fn schema_id_column_custom() {
-    #[derive(FromRow, IntoRow, Crudly)]
+    #[derive(FromRow, IntoRow, Schema)]
     struct CustomKeyColumn {
         #[crudly(id)]
         row_id: i32,
         n: u8,
     }
+    impl CrudlyDefault<Sqlite> for CustomKeyColumn {}
 
     assert_eq!(<CustomKeyColumn as Schema<Sqlite>>::id_column(), "row_id");
     let row = CustomKeyColumn { row_id: 7, n: 1 };
@@ -52,36 +55,34 @@ fn schema_id_column_custom() {
 }
 
 #[tokio::test]
-async fn custom_executor_routes_through_mock() {
+async fn blanket_default_crud_is_available() {
     let pool = sqlite::memory_with_schema(
         r#"CREATE TABLE tiny_rows (tiny_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, label TEXT NOT NULL);"#,
     )
     .await;
 
-    #[derive(Debug, Default, Clone, FromRow, IntoRow, Crudly)]
-    #[crudly(table = "tiny_rows", executor = MockCrudExecutor)]
+    #[derive(Debug, Default, Clone, FromRow, IntoRow, Schema)]
+    #[crudly(table = "tiny_rows")]
     struct TinyRow {
         #[crudly(id)]
-        #[crudly(rename = "tiny_id")]
+        #[sqlx(rename = "tiny_id")]
         id: i64,
         label: String,
     }
+    impl CrudlyDefault<Sqlite> for TinyRow {}
 
-    mcx::clear_log();
-    TinyRow::select_all(&pool).await.unwrap();
-    assert_eq!(mcx::take_log(), vec!["select_all"]);
+    let all = TinyRow::select_all(&pool).await.unwrap();
+    assert!(all.is_empty());
 
-    mcx::clear_log();
-    TinyRow {
+    let id = TinyRow {
         id: 0,
         label: "a".into(),
     }
     .insert(&pool)
     .await
     .unwrap();
-    assert!(mcx::take_log().contains(&"insert"));
+    assert_eq!(id, 1);
 
-    mcx::clear_log();
     TinyRow::insert_many(
         vec![
             TinyRow {
@@ -98,15 +99,17 @@ async fn custom_executor_routes_through_mock() {
     )
     .await
     .unwrap();
-    assert!(mcx::take_log().contains(&"insert_many_without_id"));
+
+    assert_eq!(TinyRow::select_all(&pool).await.unwrap().len(), 3);
 }
 
-#[derive(FromRow, IntoRow, Crudly)]
+#[derive(FromRow, IntoRow, Schema)]
 struct InventoryCategory {
     #[crudly(id)]
     id: i32,
     title: String,
 }
+impl CrudlyDefault<Sqlite> for InventoryCategory {}
 
 #[test]
 fn plural_y_after_consonant() {
@@ -116,13 +119,14 @@ fn plural_y_after_consonant() {
     );
 }
 
-#[derive(FromRow, IntoRow, Crudly)]
+#[derive(FromRow, IntoRow, Schema)]
 #[crudly(external_ids)]
 struct PresetIdRow {
     #[crudly(id)]
     id: i64,
     label: String,
 }
+impl CrudlyDefault<Sqlite> for PresetIdRow {}
 
 #[tokio::test]
 async fn external_ids_insert_with_id() {

@@ -1,118 +1,49 @@
 #![allow(unused_variables)]
-use crudly::{
-    BindRow, CRUDExecutor, Crudly, DBAssignedId, ExternallyAssignedId, InsertWithoutId, IntoRow,
-    ReusableExecutor, Schema, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
-    generic_insert_many_without_id, generic_insert_returning_id, generic_insert_with_id,
-    generic_select_all, generic_select_by_id, generic_update_by_id,
-};
-use sqlx::{Encode, Executor, FromRow, Sqlite, SqlitePool, Type, query, sqlite::SqliteRow};
+use crudly::{BindRow, CrudlyDefault, DBAssignedId, IntoRow, Schema, generic_insert_returning_id};
+use sqlx::{Database, Executor, FromRow, Sqlite, SqlitePool, query};
+use std::future::Future;
 
 const CREATE_USERS_TABLE_SQL: &str =
-    "CREATE TABLE users (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL);";
+    "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL);";
 
-#[derive(FromRow, IntoRow, Crudly)]
-#[crudly(executor = ExecutorWithTheAnswerToEverything)] // use the custom executor for Users.
+#[derive(FromRow, IntoRow, Schema)]
 struct User {
     #[crudly(id)]
     id: i64,
     name: String,
 }
 
-struct ExecutorWithTheAnswerToEverything;
+impl CrudlyDefault<Sqlite> for User {}
 
-/// You can implement CRUDExecutor for multiple databases just like done with [crudly::DefaultCRUDExecutor].
-impl CRUDExecutor<Sqlite> for ExecutorWithTheAnswerToEverything {
-    type InsertManyWithoutIdResult = sqlx::Result<()>;
-    type InsertWithIdResult = sqlx::Result<()>;
-    type UpdateByIdResult = sqlx::Result<bool>;
-    type DeleteByIdResult = sqlx::Result<bool>;
-
-    async fn insert_returning_id<'e, 'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
+/// Users can define their own local trait and implement it as a blanket impl.
+trait InsertWithTheAnswerToEverything<DB: Database>: Sized {
+    fn insert_with_answer<'e, 'c, E>(
+        self,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
+        'c: 'e,
+        DB: 'e,
+        E: 'e + Executor<'c, Database = DB>;
+}
+
+impl<T> InsertWithTheAnswerToEverything<Sqlite> for T
+where
+    T: BindRow<Sqlite> + DBAssignedId,
+{
+    fn insert_with_answer<'e, 'c, E>(
+        self,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<i64>> + Send
+    where
+        'c: 'e,
+        Sqlite: 'e,
         E: 'e + Executor<'c, Database = Sqlite>,
-        S: BindRow<Sqlite> + DBAssignedId,
     {
-        let _ = generic_insert_returning_id::<S, Sqlite>(executor, entity).await?;
-        // ---------------------------------- The answer to everything is 42 ----------------------------------
-        Ok(42)
-    }
-
-    async fn insert_many_without_id<S, E>(
-        entities: Vec<S>,
-        batch_size: usize,
-        executor: E,
-    ) -> sqlx::Result<()>
-    where
-        E: ReusableExecutor<Sqlite> + Send,
-        S: BindRow<Sqlite> + DBAssignedId,
-    {
-        generic_insert_many_without_id::<S, Sqlite, _>(executor, entities, batch_size).await
-    }
-
-    async fn insert_many_with_id<S, E>(
-        entities: Vec<S>,
-        batch_size: usize,
-        executor: E,
-    ) -> sqlx::Result<()>
-    where
-        E: ReusableExecutor<Sqlite> + Send,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: BindRow<Sqlite> + ExternallyAssignedId,
-    {
-        generic_insert_many_with_id::<S, Sqlite, _>(executor, entities, batch_size).await
-    }
-
-    async fn select_all<'c, S, E>(executor: E) -> sqlx::Result<Vec<S>>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
-    {
-        generic_select_all(executor).await
-    }
-
-    async fn select_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<Option<S>>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: Schema<Sqlite> + for<'r> FromRow<'r, SqliteRow> + Unpin,
-    {
-        generic_select_by_id(executor, id).await
-    }
-
-    async fn id_exists<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: Schema<Sqlite>,
-    {
-        generic_id_exists::<S, Sqlite>(executor, id).await
-    }
-
-    async fn insert_with_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<()>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite> + 'static,
-        S: BindRow<Sqlite> + ExternallyAssignedId,
-    {
-        generic_insert_with_id::<S, Sqlite>(executor, entity).await
-    }
-
-    async fn update_by_id<'c, S, E>(entity: S, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: BindRow<Sqlite>,
-    {
-        generic_update_by_id(executor, entity).await
-    }
-
-    async fn delete_by_id<'c, S, E>(id: &S::Id, executor: E) -> sqlx::Result<bool>
-    where
-        E: Executor<'c, Database = Sqlite>,
-        S::Id: for<'q> Encode<'q, Sqlite> + Type<Sqlite>,
-        S: Schema<Sqlite>,
-    {
-        generic_delete_by_id::<S, Sqlite>(executor, id).await
+        async move {
+            let _ = generic_insert_returning_id::<T, Sqlite>(executor, self).await?;
+            Ok(42)
+        }
     }
 }
 
@@ -126,7 +57,6 @@ async fn main() {
         name: "John Doe".to_string(),
     };
 
-    let inserted_id = user.insert(&pool).await.unwrap();
-
-    assert_eq!(inserted_id, 42); // Check the answer
+    let inserted_id = user.insert_with_answer(&pool).await.unwrap();
+    assert_eq!(inserted_id, 42);
 }

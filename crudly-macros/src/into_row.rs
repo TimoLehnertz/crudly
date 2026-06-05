@@ -65,7 +65,7 @@ pub(crate) struct FieldAttrs {
     field_default: bool,
     flatten: bool,
     skip: bool,
-    /// Primary key field for `#[derive(Crudly)]`; omitted from `HasColumns` / bind like `skip`.
+    /// Primary key field for `#[derive(Schema)]`; omitted from `HasColumns` / bind like `skip`.
     pub(crate) crudly_id: bool,
     try_from: Option<Type>,
     try_into: Option<Type>,

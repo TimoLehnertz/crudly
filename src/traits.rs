@@ -58,27 +58,23 @@ pub trait DBAssignedId {}
 /// using something like a uuid.
 pub trait ExternallyAssignedId {}
 
+/// Marker trait that opts an entity into the default `Crudly` and insert trait blanket impls.
+///
+/// Implement this per database backend:
+/// `impl CrudlyDefault<sqlx::Sqlite> for MyEntity {}`
+pub trait CrudlyDefault<DB: Database> {}
+
 pub trait Crudly<DB: Database>: Sized {
     type Id: Clone + Send + Sync;
 
-    /// Most likely `sqlx::Result<bool>` But one could also use the
-    /// sql RETURNING clause to return the actual entity after it was updated.
-    type UpdateByIdResult;
-
-    /// The result type of the delete operation.
-    ///
-    /// This could be `sqlx::Result<()>` or something else that additionally indicates if
-    /// the entity was indeed deleted or didn't exist in the first place.
-    type DeleteByIdResult;
-
-    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>>
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
         E: Executor<'c, Database = DB>;
 
     fn select_by_id<'c, E>(
         id: &Self::Id,
         executor: E,
-    ) -> impl Future<Output = sqlx::Result<Option<Self>>>
+    ) -> impl Future<Output = sqlx::Result<Option<Self>>> + Send
     where
         E: Executor<'c, Database = DB>;
 
@@ -89,24 +85,22 @@ pub trait Crudly<DB: Database>: Sized {
     where
         E: Executor<'c, Database = DB>;
 
-    fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = Self::UpdateByIdResult>
+    fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = DB>;
 
     fn delete_by_id<'c, E>(
         id: &Self::Id,
         executor: E,
-    ) -> impl Future<Output = Self::DeleteByIdResult>
+    ) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = DB>;
 }
 
 /// Insert rows without supplying the id column so the database can assign ids (e.g. `AUTOINCREMENT`,
-/// `SERIAL`). This trait is derived by [`Crudly`] unless `#[crudly(external_ids)]` is set on the struct.
+/// `SERIAL`). This trait is available through the default blanket impls for types that implement
+/// [`CrudlyDefault`] and [`DBAssignedId`].
 pub trait InsertWithoutId<DB: Database>: Sized {
-    /// One might want to implement this in a way that returns all the inserted ids.
-    type InsertManyResult;
-
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
         E: Executor<'c, Database = DB>;
@@ -116,17 +110,13 @@ pub trait InsertWithoutId<DB: Database>: Sized {
         entities: Vec<Self>,
         batch_size: usize,
         executor: E,
-    ) -> impl Future<Output = Self::InsertManyResult>
+    ) -> impl Future<Output = sqlx::Result<()>> + Send
     where
         E: ReusableExecutor<DB> + Send;
 }
 
 pub trait InsertWithId<DB: Database>: Sized {
-    /// Most likely sqlx::Result<()> But one could also use the
-    /// sql RETURNING clause to return the actual entity after it was inserted.
-    type InsertResult;
-
-    fn insert<'c, E>(self, executor: E) -> impl Future<Output = Self::InsertResult>
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
         E: Executor<'c, Database = DB>;
 

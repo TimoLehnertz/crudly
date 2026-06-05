@@ -1,6 +1,6 @@
 use crudly::{
-    CRUDExecutor, Crudly, DefaultCRUDExecutor, FormatPlaceholder, InsertWithId, InsertWithoutId,
-    IntoRow, LastInsertedRowId, Schema,
+    Crudly, CrudlyDefault, FormatPlaceholder, InsertWithId, InsertWithoutId, IntoRow,
+    LastInsertedRowId, Schema, generic_insert_returning_id,
 };
 use sqlx::{Database, Executor, IntoArguments, prelude::FromRow};
 
@@ -19,7 +19,6 @@ where
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
     for<'q> std::string::String: sqlx::Encode<'q, DB>,
     std::string::String: sqlx::Type<DB>,
-    DefaultCRUDExecutor: CRUDExecutor<DB>,
 {
     fn insert<'e, 'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -28,7 +27,7 @@ where
         E: 'e + Executor<'c, Database = DB>,
     {
         // sqlx::query("SELECT 1").execute(executor).await?;
-        async { DefaultCRUDExecutor::insert_returning_id(self, executor).await }
+        async { generic_insert_returning_id::<Self, DB>(executor, self).await }
         // Ok(1)
     }
 }
@@ -49,25 +48,26 @@ fn _do_stuff(bar: Bar, pool: sqlx::SqlitePool) {
     });
 }
 
-#[derive(FromRow, IntoRow, Crudly, Default)]
+#[derive(FromRow, IntoRow, Schema, Default)]
 pub struct User {
     #[crudly(id)]
     pub id: i64,
     pub name: String,
 }
+impl CrudlyDefault<sqlx::Sqlite> for User {}
 
-#[derive(FromRow, IntoRow, Crudly, Default)]
+#[derive(FromRow, IntoRow, Schema, Default)]
 #[crudly(external_ids)]
 pub struct UserExternalIds {
     #[crudly(id)]
     pub id: i64,
     pub name: String,
 }
+impl CrudlyDefault<sqlx::Sqlite> for UserExternalIds {}
 
 /// This used to not compile with the very unhelpful error: lifetime bound not satisfied
 /// this is a known limitation that will be removed in the future (see issue #100013 <https://github.com/rust-lang/rust/issues/100013> for more information)
-/// The compiler error finally was resolved by making the Crudly derive macro
-/// implement the trait functions using `fn foo() -> impl Future<Output = ...> + Send` instead async functions
+/// The compiler error was resolved by using trait methods returning `impl Future<Output = ...> + Send`.
 async fn _should_compile(pool: sqlx::SqlitePool) {
     tokio::spawn(async move {
         let mut con = pool.acquire().await.unwrap();
