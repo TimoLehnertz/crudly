@@ -78,6 +78,15 @@ pub trait Crudly<DB: Database>: Sized {
     where
         E: Executor<'c, Database = DB>;
 
+    /// `batch_size`: max ids per `IN (...)` group; `0` means one group for all ids.
+    fn select_by_ids<'c, E>(
+        ids: Vec<Self::Id>,
+        batch_size: usize,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
+    where
+        E: Executor<'c, Database = DB>;
+
     fn id_exists<'c, E>(
         id: &Self::Id,
         executor: E,

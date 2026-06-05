@@ -3,7 +3,8 @@ use crudly::{
     BindRow, Crudly, DBAssignedId, ExternallyAssignedId, HasColumns, InsertWithId, InsertWithoutId,
     IntoRow, ReusableExecutor, Schema, generic_delete_by_id, generic_id_exists,
     generic_insert_many_with_id, generic_insert_many_without_id, generic_insert_returning_id,
-    generic_insert_with_id, generic_select_all, generic_select_by_id, generic_update_by_id,
+    generic_insert_with_id, generic_select_all, generic_select_by_id, generic_select_by_ids,
+    generic_update_by_id,
 };
 use serde::Serialize;
 use sqlx::sqlite::{Sqlite, SqlitePool};
@@ -138,6 +139,17 @@ where
         E: Executor<'c, Database = Sqlite>,
     {
         generic_select_by_id(executor, id).await
+    }
+
+    async fn select_by_ids<'c, E>(
+        ids: Vec<Self::Id>,
+        batch_size: usize,
+        executor: E,
+    ) -> sqlx::Result<Vec<Self>>
+    where
+        E: Executor<'c, Database = Sqlite>,
+    {
+        generic_select_by_ids(executor, ids, batch_size).await
     }
 
     async fn update_by_id<'c, E>(self, executor: E) -> sqlx::Result<bool>

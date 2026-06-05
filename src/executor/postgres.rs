@@ -6,7 +6,7 @@ use crate::executor::{
 use crate::{
     BindRow, Crudly, CrudlyDefault, DBAssignedId, ExternallyAssignedId, FormatPlaceholder,
     InsertWithId, InsertWithoutId, RowsAffected, Schema, generic_id_exists,
-    generic_insert_many_with_id, generic_select_all, generic_select_by_id,
+    generic_insert_many_with_id, generic_select_all, generic_select_by_id, generic_select_by_ids,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
 use sqlx::{Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
@@ -80,6 +80,17 @@ where
         E: Executor<'c, Database = Postgres>,
     {
         async { generic_select_by_id(executor, id).await }
+    }
+
+    fn select_by_ids<'c, E>(
+        ids: Vec<Self::Id>,
+        batch_size: usize,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<Vec<Self>>>
+    where
+        E: Executor<'c, Database = Postgres>,
+    {
+        async move { generic_select_by_ids(executor, ids, batch_size).await }
     }
 
     fn id_exists<'c, E>(

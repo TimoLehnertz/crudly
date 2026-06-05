@@ -112,7 +112,7 @@
 //!
 //! Implementing [`CrudlyDefault`] for an entity enables blanket default implementations for `Crudly`
 //! plus either [`InsertWithoutId`] or [`InsertWithId`] depending on id strategy.
-//! The provided methods are: `select_all`, `select_by_id`, `update_by_id`, `id_exists`, `delete_by_id`,
+//! The provided methods are: `select_all`, `select_by_id`, `select_by_ids`, `update_by_id`, `id_exists`, `delete_by_id`,
 //! and either `insert`/`insert_many` for DB-assigned ids or external ids.
 //!
 //! **Table names:** The table name for an entity can get set by using the `#[crudly(table = "name")]` attribute. If the attribute is not

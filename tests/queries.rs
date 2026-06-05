@@ -101,3 +101,49 @@ async fn test_insert_many_internal_ids() {
     let all_users = UserInternalID::select_all(&pool).await.unwrap();
     assert_eq!(3, all_users.len());
 }
+
+#[tokio::test]
+async fn test_select_by_ids() {
+    let pool = sqlite_mem().await;
+
+    UserExternalID::insert_many(
+        vec![
+            UserExternalID {
+                id: 1,
+                name: "A".to_string(),
+            },
+            UserExternalID {
+                id: 2,
+                name: "B".to_string(),
+            },
+            UserExternalID {
+                id: 3,
+                name: "C".to_string(),
+            },
+        ],
+        0,
+        &pool,
+    )
+    .await
+    .unwrap();
+
+    let selected = UserExternalID::select_by_ids(vec![3, 1], 0, &pool)
+        .await
+        .unwrap();
+
+    assert_eq!(selected.len(), 2);
+    assert_eq!(selected[0].id, 1);
+    assert_eq!(selected[1].id, 3);
+
+    let selected_batched = UserExternalID::select_by_ids(vec![3, 1], 1, &pool)
+        .await
+        .unwrap();
+
+    assert_eq!(selected, selected_batched);
+
+    let none = UserExternalID::select_by_ids(vec![], 2, &pool)
+        .await
+        .unwrap();
+
+    assert!(none.is_empty());
+}

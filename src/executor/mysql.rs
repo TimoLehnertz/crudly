@@ -6,7 +6,7 @@ use crate::executor::{
 use crate::{
     BindRow, Crudly, CrudlyDefault, DBAssignedId, ExternallyAssignedId, FormatPlaceholder,
     InsertWithId, InsertWithoutId, LastInsertedRowId, RowsAffected, Schema, generic_id_exists,
-    generic_insert_many_with_id, generic_select_all, generic_select_by_id,
+    generic_insert_many_with_id, generic_select_all, generic_select_by_id, generic_select_by_ids,
 };
 use sqlx::MySql;
 use sqlx::mysql::{MySqlQueryResult, MySqlRow};
@@ -57,6 +57,17 @@ where
         E: Executor<'c, Database = MySql>,
     {
         async { generic_select_by_id(executor, id).await }
+    }
+
+    fn select_by_ids<'c, E>(
+        ids: Vec<Self::Id>,
+        batch_size: usize,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<Vec<Self>>>
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async move { generic_select_by_ids(executor, ids, batch_size).await }
     }
 
     fn id_exists<'c, E>(

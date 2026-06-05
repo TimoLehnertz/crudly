@@ -77,6 +77,61 @@ where
     query_as(&sql).bind(id).fetch_optional(executor).await
 }
 
+pub async fn generic_select_by_ids<S, DB>(
+    executor: impl Executor<'_, Database = DB>,
+    ids: Vec<S::Id>,
+    batch_size: usize,
+) -> sqlx::Result<Vec<S>>
+where
+    DB: Database + FormatPlaceholder,
+    S::Id: for<'q> Encode<'q, DB> + Type<DB>,
+    S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin,
+    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+{
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let columns = comma_delimited_columns_with_id::<S, DB>();
+    let table_name = S::table_name();
+    let id_column = S::id_column();
+    let ids_len = ids.len();
+    let in_group_size = if batch_size == 0 {
+        ids_len
+    } else {
+        batch_size.min(ids_len)
+    };
+
+    let mut next_placeholder_idx = 0;
+    let mut in_clauses = Vec::new();
+    let mut remaining = ids_len;
+    while remaining > 0 {
+        let current_group = in_group_size.min(remaining);
+        let placeholders = (0..current_group)
+            .map(|_| {
+                let placeholder = DB::format_placeholder(next_placeholder_idx);
+                next_placeholder_idx += 1;
+                placeholder
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+        in_clauses.push(format!("{id_column} IN ({placeholders})"));
+        remaining -= current_group;
+    }
+
+    let sql = format!(
+        "SELECT {columns} FROM {table_name} WHERE {} ORDER BY {id_column} ASC;",
+        in_clauses.join(" OR ")
+    );
+
+    let mut query = query_as(&sql);
+    for id in ids {
+        query = query.bind(id);
+    }
+
+    query.fetch_all(executor).await
+}
+
 pub async fn generic_id_exists<S, DB>(
     executor: impl Executor<'_, Database = DB>,
     id: &S::Id,

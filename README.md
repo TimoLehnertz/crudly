@@ -94,7 +94,7 @@ because depending on context the id might or might not be desired.
 
 Implement `CrudlyDefault<DB>` to opt into the default blanket implementations of `Crudly` and
 either `InsertWithoutId` or `InsertWithId` (based on id strategy). This enables:
-`select_all`, `select_by_id`, `update_by_id`, `id_exists`, `delete_by_id`, and `insert`/`insert_many`.
+`select_all`, `select_by_id`, `select_by_ids`, `update_by_id`, `id_exists`, `delete_by_id`, and `insert`/`insert_many`.
 
 **Table names:** The table name for an entity can get set by using the `#[crudly(table = "name")]` attribute. If the attribute is not
 present, the table name will get inferred from the struct name. The name of the struct in pluralized `snake_case`. (e.g. `User` -> `users`).
