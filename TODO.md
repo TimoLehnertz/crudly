@@ -1,3 +1,4 @@
 # Todos
 
-- [ ] Document the Schema derive and use custom use case
+- [ ] Align IntoRow trait more closely to sqlx::FromRow trait
+- [ ] Make id not required. Insert is still meaningful without an id
