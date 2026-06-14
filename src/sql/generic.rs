@@ -3,6 +3,7 @@ use crate::HasId;
 use crate::IntoRow;
 use crate::Schema;
 use crate::sql::reusable_executor::ReusableExecutor;
+use sqlx::AssertSqlSafe;
 use sqlx::{
     Arguments, Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as,
     query_with,
@@ -53,14 +54,14 @@ pub async fn generic_select_all<S, DB: Database>(
 ) -> sqlx::Result<Vec<S>>
 where
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let columns = comma_delimited_columns::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
 
     let sql = format!("SELECT {columns} FROM {table_name} ORDER BY {id_column} ASC;");
-    query_as(&sql).fetch_all(executor).await
+    query_as(AssertSqlSafe(sql)).fetch_all(executor).await
 }
 
 /// Like [`generic_select_all`] but for entities without an id column; selects all columns from
@@ -70,12 +71,12 @@ pub async fn generic_select_all_no_id<S, DB: Database>(
 ) -> sqlx::Result<Vec<S>>
 where
     S: Schema + for<'r> FromRow<'r, DB::Row> + Unpin,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let columns = comma_delimited_columns::<S>();
     let table_name = S::table_name();
     let sql = format!("SELECT {columns} FROM {table_name};");
-    query_as(&sql).fetch_all(executor).await
+    query_as(AssertSqlSafe(sql)).fetch_all(executor).await
 }
 
 pub async fn generic_delete_all<S, DB: Database>(
@@ -83,11 +84,11 @@ pub async fn generic_delete_all<S, DB: Database>(
 ) -> sqlx::Result<()>
 where
     S: Schema,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
     let sql = format!("DELETE FROM {table_name};");
-    query(&sql).execute(executor).await?;
+    query(AssertSqlSafe(sql)).execute(executor).await?;
     Ok(())
 }
 
@@ -99,7 +100,7 @@ where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let columns = comma_delimited_columns::<S>();
     let table_name = S::table_name();
@@ -108,7 +109,10 @@ where
     let placeholder = DB::format_placeholder(0);
 
     let sql = format!("SELECT {columns} FROM {table_name} WHERE {id_column} = {placeholder};");
-    query_as(&sql).bind(id).fetch_optional(executor).await
+    query_as(AssertSqlSafe(sql))
+        .bind(id)
+        .fetch_optional(executor)
+        .await
 }
 
 pub async fn generic_select_by_ids<S, DB>(
@@ -120,7 +124,7 @@ where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     if ids.is_empty() {
         return Ok(Vec::new());
@@ -158,7 +162,7 @@ where
         in_clauses.join(" OR ")
     );
 
-    let mut query = query_as(&sql);
+    let mut query = query_as(AssertSqlSafe(sql));
     for id in ids {
         query = query.bind(id);
     }
@@ -174,7 +178,7 @@ where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
     let id_column = S::id_column();
@@ -183,7 +187,7 @@ where
 
     let sql = format!("SELECT 1 FROM {table_name} WHERE \"{id_column}\" = {placeholder};");
 
-    query(&sql)
+    query(AssertSqlSafe(sql))
         .bind(id)
         .fetch_optional(executor)
         .await
@@ -198,7 +202,7 @@ where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + IntoRow<DB> + HasId,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
     let columns = comma_delimited_columns::<S>();
@@ -210,7 +214,9 @@ where
     arguments.add(entity.id()).map_err(sqlx::Error::Encode)?;
     entity.bind_arguments(&mut arguments)?;
 
-    query_with(&sql, arguments).execute(executor).await?;
+    query_with(AssertSqlSafe(sql), arguments)
+        .execute(executor)
+        .await?;
     Ok(())
 }
 
@@ -221,7 +227,7 @@ pub async fn generic_insert<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     S: Schema + IntoRow<DB>,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
     let non_id_columns = <S as HasColumns>::columns();
@@ -238,7 +244,9 @@ where
     let mut arguments = DB::Arguments::default();
     entity.bind_arguments(&mut arguments)?;
 
-    query_with(&sql, arguments).execute(executor).await
+    query_with(AssertSqlSafe(sql), arguments)
+        .execute(executor)
+        .await
 }
 
 pub async fn generic_insert_returning_id<S, DB>(
@@ -249,7 +257,7 @@ where
     DB: Database + FormatPlaceholder,
     DB::QueryResult: LastInsertedRowId,
     S: Schema + IntoRow<DB>,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let result = generic_insert::<S, DB>(executor, entity).await?;
     Ok(result.last_insert_rowid())
@@ -268,7 +276,7 @@ where
     E: ReusableExecutor<DB>,
     DB: Database + FormatPlaceholder,
     S: Schema + IntoRow<DB>,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     if entities.is_empty() {
         return Ok(());
@@ -318,7 +326,9 @@ where
         for entity in chunk_entities {
             entity.bind_arguments(&mut arguments)?;
         }
-        executor.execute_query_with(&sql, arguments).await?;
+        executor
+            .execute_query_with(AssertSqlSafe(sql), arguments)
+            .await?;
     }
 
     Ok(())
@@ -338,7 +348,7 @@ where
     E: ReusableExecutor<DB> + Send,
     DB: Database + FormatPlaceholder,
     S: Schema + IntoRow<DB> + HasId,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     if entities.is_empty() {
         return Ok(());
@@ -383,7 +393,9 @@ where
             arguments.add(entity.id()).map_err(sqlx::Error::Encode)?;
             entity.bind_arguments(&mut arguments)?;
         }
-        executor.execute_query_with(&sql, arguments).await?;
+        executor
+            .execute_query_with(AssertSqlSafe(sql), arguments)
+            .await?;
         rest = remainder;
     }
 
@@ -403,7 +415,7 @@ where
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + IntoRow<DB> + HasId,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
     let id_column = S::id_column();
@@ -430,7 +442,9 @@ where
     entity.bind_arguments(&mut arguments)?;
     arguments.add(entity_id).map_err(sqlx::Error::Encode)?;
 
-    let result = query_with(&sql, arguments).execute(executor).await?;
+    let result = query_with(AssertSqlSafe(sql), arguments)
+        .execute(executor)
+        .await?;
     Ok(result.rows_affected() > 0)
 }
 
@@ -447,7 +461,7 @@ where
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
     let id_column = S::id_column();
@@ -455,7 +469,7 @@ where
 
     let sql = format!("DELETE FROM {table_name} WHERE {id_column} = {id_placeholder}");
 
-    let result = query(&sql).bind(id).execute(executor).await?;
+    let result = query(AssertSqlSafe(sql)).bind(id).execute(executor).await?;
 
     Ok(result.rows_affected() > 0)
 }
@@ -475,9 +489,9 @@ pub mod tests {
     }
 
     impl IntoRow<Sqlite> for Dummy {
-        fn bind_arguments<'q>(
+        fn bind_arguments(
             self,
-            _arguments: &mut <Sqlite as Database>::Arguments<'q>,
+            _arguments: &mut <Sqlite as Database>::Arguments,
         ) -> sqlx::Result<()> {
             unimplemented!()
         }

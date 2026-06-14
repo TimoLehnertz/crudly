@@ -2,23 +2,18 @@
 
 use std::fmt::{self, Debug, Display, Formatter};
 use std::future::Future;
-use std::pin::Pin;
 use std::str::FromStr;
-
-use std::borrow::Cow;
-use std::marker::PhantomData;
 
 use serde::Serialize;
 use sqlx::encode::{Encode, IsNull};
 use sqlx::error::BoxDynError;
 use sqlx::types::{Json, Type};
 use sqlx::{
-    Arguments, Column, ColumnIndex, ConnectOptions, Connection, Database, Either, Error,
-    IntoArguments, Row, Statement, Transaction, TransactionManager, TypeInfo, Value, ValueRef,
+    Arguments, Column, ColumnIndex, ConnectOptions, Connection, Database, Either, Error, Row,
+    SqlStr, Statement, Transaction, TypeInfo, Value, ValueRef,
 };
+use sqlx_core::transaction::TransactionManager;
 use url::Url;
-
-type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Debug, Clone)]
 pub struct MockConnectOptions;
@@ -38,8 +33,8 @@ impl ConnectOptions for MockConnectOptions {
         unimplemented!()
     }
 
-    fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>> {
-        Box::pin(async move { unimplemented!() })
+    fn connect(&self) -> impl Future<Output = Result<Self::Connection, Error>> + Send + '_ {
+        async move { unimplemented!() }
     }
 
     fn log_statements(self, _level: log::LevelFilter) -> Self {
@@ -58,28 +53,28 @@ impl Connection for MockConnection {
     type Database = MockDB;
     type Options = MockConnectOptions;
 
-    fn close(self) -> BoxFuture<'static, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
+    fn close(self) -> impl Future<Output = Result<(), Error>> + Send + 'static {
+        async move { unimplemented!() }
     }
 
-    fn close_hard(self) -> BoxFuture<'static, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
+    fn close_hard(self) -> impl Future<Output = Result<(), Error>> + Send + 'static {
+        async move { unimplemented!() }
     }
 
-    fn ping(&mut self) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
+    fn ping(&mut self) -> impl Future<Output = Result<(), Error>> + Send + '_ {
+        async move { unimplemented!() }
     }
 
-    fn begin(&mut self) -> BoxFuture<'_, Result<Transaction<'_, Self::Database>, Error>> {
-        Box::pin(async move { unimplemented!() })
+    fn begin(&mut self) -> impl Future<Output = Result<Transaction<'_, Self::Database>, Error>> + Send + '_ {
+        async move { unimplemented!() }
     }
 
     fn shrink_buffers(&mut self) {
         unimplemented!()
     }
 
-    fn flush(&mut self) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
+    fn flush(&mut self) -> impl Future<Output = Result<(), Error>> + Send + '_ {
+        async move { unimplemented!() }
     }
 
     fn should_flush(&self) -> bool {
@@ -93,30 +88,30 @@ pub struct MockTransactionManager;
 impl TransactionManager for MockTransactionManager {
     type Database = MockDB;
 
-    fn begin<'conn>(
-        _conn: &'conn mut <Self::Database as Database>::Connection,
-        _statement: Option<Cow<'static, str>>,
-    ) -> BoxFuture<'conn, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
-    }
-
-    fn commit(
-        _conn: &mut <Self::Database as Database>::Connection,
-    ) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
-    }
-
-    fn rollback(
-        _conn: &mut <Self::Database as Database>::Connection,
-    ) -> BoxFuture<'_, Result<(), Error>> {
-        Box::pin(async move { unimplemented!() })
-    }
-
-    fn start_rollback(_conn: &mut <Self::Database as Database>::Connection) {
+    async fn begin(
+        _conn: &mut MockConnection,
+        _statement: Option<SqlStr>,
+    ) -> Result<(), Error> {
         unimplemented!()
     }
 
-    fn get_transaction_depth(_conn: &<Self::Database as Database>::Connection) -> usize {
+    fn commit(
+        _conn: &mut MockConnection,
+    ) -> impl Future<Output = Result<(), Error>> + Send + '_ {
+        async move { unimplemented!() }
+    }
+
+    fn rollback(
+        _conn: &mut MockConnection,
+    ) -> impl Future<Output = Result<(), Error>> + Send + '_ {
+        async move { unimplemented!() }
+    }
+
+    fn start_rollback(_conn: &mut MockConnection) {
+        unimplemented!()
+    }
+
+    fn get_transaction_depth(_conn: &MockConnection) -> usize {
         unimplemented!()
     }
 }
@@ -208,7 +203,7 @@ impl Value for MockValue {
         unimplemented!()
     }
 
-    fn type_info(&self) -> Cow<'_, <Self::Database as Database>::TypeInfo> {
+    fn type_info(&self) -> std::borrow::Cow<'_, <Self::Database as Database>::TypeInfo> {
         unimplemented!()
     }
 
@@ -229,7 +224,7 @@ impl<'r> ValueRef<'r> for MockValueRef<'r> {
         unimplemented!()
     }
 
-    fn type_info(&self) -> Cow<'_, <Self::Database as Database>::TypeInfo> {
+    fn type_info(&self) -> std::borrow::Cow<'_, <Self::Database as Database>::TypeInfo> {
         unimplemented!()
     }
 
@@ -240,21 +235,20 @@ impl<'r> ValueRef<'r> for MockValueRef<'r> {
 
 /// Bound parameter values as `Display` strings; `None` is SQL `NULL`.
 #[derive(Debug, Default)]
-pub struct MockArguments<'q> {
+pub struct MockArguments {
     pub values: Vec<Option<String>>,
-    _marker: PhantomData<&'q ()>,
 }
 
-impl<'q> Arguments<'q> for MockArguments<'q> {
+impl Arguments for MockArguments {
     type Database = MockDB;
 
     fn reserve(&mut self, additional: usize, _size: usize) {
         self.values.reserve(additional);
     }
 
-    fn add<T>(&mut self, value: T) -> Result<(), BoxDynError>
+    fn add<'t, T>(&mut self, value: T) -> Result<(), BoxDynError>
     where
-        T: 'q + Encode<'q, Self::Database> + Type<Self::Database>,
+        T: Encode<'t, Self::Database> + Type<Self::Database>,
     {
         let len_before = self.values.len();
         match value.encode(&mut self.values) {
@@ -273,26 +267,22 @@ impl<'q> Arguments<'q> for MockArguments<'q> {
     }
 }
 
-impl<'q> IntoArguments<'q, MockDB> for MockArguments<'q> {
-    fn into_arguments(self) -> <MockDB as Database>::Arguments<'q> {
-        self
-    }
+sqlx_core::impl_into_arguments_for_arguments!(MockArguments);
+
+#[derive(Debug, Clone)]
+pub struct MockStatement {
+    sql: SqlStr,
 }
 
-#[derive(Debug)]
-pub struct MockStatement<'q> {
-    _marker: std::marker::PhantomData<&'q ()>,
-}
-
-impl<'q> Statement<'q> for MockStatement<'q> {
+impl Statement for MockStatement {
     type Database = MockDB;
 
-    fn to_owned(&self) -> <Self::Database as Database>::Statement<'static> {
-        unimplemented!()
+    fn into_sql(self) -> SqlStr {
+        self.sql
     }
 
-    fn sql(&self) -> &str {
-        unimplemented!()
+    fn sql(&self) -> &SqlStr {
+        &self.sql
     }
 
     fn parameters(&self) -> Option<Either<&[<Self::Database as Database>::TypeInfo], usize>> {
@@ -303,68 +293,17 @@ impl<'q> Statement<'q> for MockStatement<'q> {
         unimplemented!()
     }
 
-    fn query(
-        &self,
-    ) -> sqlx::query::Query<'_, Self::Database, <Self::Database as Database>::Arguments<'_>> {
-        unimplemented!()
-    }
+    sqlx_core::impl_statement_query!(MockArguments);
+}
 
-    fn query_with<'s, A>(&'s self, _arguments: A) -> sqlx::query::Query<'s, Self::Database, A>
-    where
-        A: IntoArguments<'s, Self::Database>,
-    {
-        unimplemented!()
-    }
-
-    fn query_as<O>(
-        &self,
-    ) -> sqlx::query::QueryAs<'_, Self::Database, O, <Self::Database as Database>::Arguments<'_>>
-    where
-        O: for<'r> sqlx::FromRow<'r, <Self::Database as Database>::Row>,
-    {
-        unimplemented!()
-    }
-
-    fn query_as_with<'s, O, A>(
-        &'s self,
-        _arguments: A,
-    ) -> sqlx::query::QueryAs<'s, Self::Database, O, A>
-    where
-        O: for<'r> sqlx::FromRow<'r, <Self::Database as Database>::Row>,
-        A: IntoArguments<'s, Self::Database>,
-    {
-        unimplemented!()
-    }
-
-    fn query_scalar<O>(
-        &self,
-    ) -> sqlx::query::QueryScalar<'_, Self::Database, O, <Self::Database as Database>::Arguments<'_>>
-    where
-        (O,): for<'r> sqlx::FromRow<'r, <Self::Database as Database>::Row>,
-    {
-        unimplemented!()
-    }
-
-    fn query_scalar_with<'s, O, A>(
-        &'s self,
-        _arguments: A,
-    ) -> sqlx::query::QueryScalar<'s, Self::Database, O, A>
-    where
-        (O,): for<'r> sqlx::FromRow<'r, <Self::Database as Database>::Row>,
-        A: IntoArguments<'s, Self::Database>,
-    {
+impl ColumnIndex<MockStatement> for usize {
+    fn index(&self, _container: &MockStatement) -> Result<usize, Error> {
         unimplemented!()
     }
 }
 
-impl ColumnIndex<MockStatement<'_>> for usize {
-    fn index(&self, _container: &MockStatement<'_>) -> Result<usize, Error> {
-        unimplemented!()
-    }
-}
-
-impl ColumnIndex<MockStatement<'_>> for &str {
-    fn index(&self, _container: &MockStatement<'_>) -> Result<usize, Error> {
+impl ColumnIndex<MockStatement> for &str {
+    fn index(&self, _container: &MockStatement) -> Result<usize, Error> {
         unimplemented!()
     }
 }
@@ -378,23 +317,23 @@ impl Type<MockDB> for String {
     }
 }
 
-impl<'q> Encode<'q, MockDB> for String {
+impl Encode<'_, MockDB> for String {
     fn encode_by_ref(
         &self,
-        buf: &mut <MockDB as Database>::ArgumentBuffer<'q>,
+        buf: &mut <MockDB as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         buf.push(Some(self.to_string()));
         Ok(IsNull::No)
     }
 }
 
-impl<'q, T> Encode<'q, MockDB> for Option<T>
+impl<T> Encode<'_, MockDB> for Option<T>
 where
-    T: Encode<'q, MockDB>,
+    T: for<'q> Encode<'q, MockDB>,
 {
     fn encode_by_ref(
         &self,
-        buf: &mut <MockDB as Database>::ArgumentBuffer<'q>,
+        buf: &mut <MockDB as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         match self {
             None => Ok(IsNull::Yes),
@@ -409,10 +348,10 @@ impl<T> Type<MockDB> for Json<T> {
     }
 }
 
-impl<'q, T: Serialize> Encode<'q, MockDB> for Json<T> {
+impl<T: Serialize> Encode<'_, MockDB> for Json<T> {
     fn encode_by_ref(
         &self,
-        buf: &mut <MockDB as Database>::ArgumentBuffer<'q>,
+        buf: &mut <MockDB as Database>::ArgumentBuffer,
     ) -> Result<IsNull, BoxDynError> {
         let s = serde_json::to_string(self).map_err(BoxDynError::from)?;
         buf.push(Some(s));
@@ -429,9 +368,9 @@ impl Database for MockDB {
     type TypeInfo = MockTypeInfo;
     type Value = MockValue;
     type ValueRef<'r> = MockValueRef<'r>;
-    type Arguments<'q> = MockArguments<'q>;
-    type ArgumentBuffer<'q> = Vec<Option<String>>;
-    type Statement<'q> = MockStatement<'q>;
+    type Arguments = MockArguments;
+    type ArgumentBuffer = Vec<Option<String>>;
+    type Statement = MockStatement;
 
     const NAME: &'static str = "mock";
     const URL_SCHEMES: &'static [&'static str] = &["mock"];

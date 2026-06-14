@@ -19,7 +19,7 @@ pub trait HasColumns {
 pub trait IntoRow<DB: Database>: HasColumns {
     /// Binds values in the same order as [`HasColumns::columns`].
     /// Does **not** bind the id.
-    fn bind_arguments<'q>(self, arguments: &mut DB::Arguments<'q>) -> sqlx::Result<()>;
+    fn bind_arguments(self, arguments: &mut DB::Arguments) -> sqlx::Result<()>;
 }
 
 pub trait HasId {

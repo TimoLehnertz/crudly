@@ -5,7 +5,7 @@ use sqlx::types::Json;
 
 mod common;
 
-fn bind_mock<R: IntoRow<MockDB>>(row: R, args: &mut MockArguments<'_>) -> sqlx::Result<()> {
+fn bind_mock<R: IntoRow<MockDB>>(row: R, args: &mut MockArguments) -> sqlx::Result<()> {
     IntoRow::<MockDB>::bind_arguments(row, args)
 }
 

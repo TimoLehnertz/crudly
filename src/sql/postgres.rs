@@ -12,7 +12,7 @@ use crate::{
     UpdateById,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
-use sqlx::{Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
+use sqlx::{AssertSqlSafe, Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
 use std::future::Future;
 
 impl FormatPlaceholder for Postgres {
@@ -51,7 +51,7 @@ where
     let mut arguments = PgArguments::default();
     entity.bind_arguments(&mut arguments)?;
 
-    let inserted_id: i64 = query_scalar_with(&sql, arguments)
+    let inserted_id: i64 = query_scalar_with(AssertSqlSafe(sql), arguments)
         .fetch_one(executor)
         .await?;
 

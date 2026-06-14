@@ -651,9 +651,9 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         impl #impl_generics ::crudly::IntoRow<__CrudlyDb> for #ident #hc_ty_generics
         #where_clause
         {
-            fn bind_arguments<'q>(
+            fn bind_arguments(
                 self,
-                arguments: &mut <__CrudlyDb as ::sqlx::Database>::Arguments<'q>,
+                arguments: &mut <__CrudlyDb as ::sqlx::Database>::Arguments,
             ) -> ::sqlx::Result<()> {
                 use ::sqlx::Arguments as _;
                 #(#bind_fragments)*

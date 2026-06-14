@@ -42,7 +42,7 @@ where
 {
     fn bind_arguments<'q>(
         self,
-        arguments: &mut <Sqlite as Database>::Arguments<'q>,
+        arguments: &mut <Sqlite as Database>::Arguments,
     ) -> sqlx::Result<()> {
         arguments.add(self.name).map_err(sqlx::Error::Encode)?;
         self.address.bind_arguments(arguments)?;
@@ -58,10 +58,7 @@ impl IntoRow<Sqlite> for Address
 where
     for<'q> String: Encode<'q, Sqlite> + Type<Sqlite>,
 {
-    fn bind_arguments<'q>(
-        self,
-        arguments: &mut <Sqlite as Database>::Arguments<'q>,
-    ) -> sqlx::Result<()> {
+    fn bind_arguments(self, arguments: &mut <Sqlite as Database>::Arguments) -> sqlx::Result<()> {
         arguments.add(self.street).map_err(sqlx::Error::Encode)?;
         arguments.add(self.city).map_err(sqlx::Error::Encode)?;
         Ok(())

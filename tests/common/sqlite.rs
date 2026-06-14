@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 
-use sqlx::sqlite::SqlitePool;
+use sqlx::{AssertSqlSafe, sqlite::SqlitePool};
 
 /// Open a pool on a private `:memory:` database (not shared with other pools).
 pub async fn connect_memory() -> SqlitePool {
@@ -14,7 +14,7 @@ pub async fn connect_memory() -> SqlitePool {
 /// Connect, run `sql` (typically `CREATE TABLE …`), and return the pool.
 pub async fn memory_with_schema(sql: &str) -> SqlitePool {
     let pool = connect_memory().await;
-    sqlx::query(sql)
+    sqlx::query(AssertSqlSafe(sql))
         .execute(&pool)
         .await
         .expect("run sqlite schema DDL");

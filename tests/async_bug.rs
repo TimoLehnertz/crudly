@@ -17,7 +17,7 @@ impl<DB: Database> Foo<DB> for Bar
 where
     DB: FormatPlaceholder,
     DB::QueryResult: LastInsertedRowId,
-    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+    <DB as Database>::Arguments: IntoArguments<DB>,
     for<'q> std::string::String: sqlx::Encode<'q, DB>,
     std::string::String: sqlx::Type<DB>,
 {
