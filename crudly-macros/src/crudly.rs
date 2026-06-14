@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Fields, LitStr, parse_quote};
+use syn::{Data, DeriveInput, Fields, LitStr};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum IdStrategy {
@@ -14,7 +14,8 @@ enum IdStrategy {
 
 struct CrudlyAttrs {
     table: Option<String>,
-    id_strategy: IdStrategy,
+    /// `None` means neither `db_ids` nor `external_ids` was supplied.
+    explicit_id_strategy: Option<IdStrategy>,
 }
 
 fn pluralize_ascii_identifier_base(snake_singular: &str) -> String {
@@ -94,25 +95,35 @@ impl CrudlyAttrs {
             ));
         }
 
-        let id_strategy = if external_ids {
-            IdStrategy::External
+        let explicit_id_strategy = if external_ids {
+            Some(IdStrategy::External)
+        } else if db_ids {
+            Some(IdStrategy::DbAssigned)
         } else {
-            IdStrategy::DbAssigned
+            None
         };
 
-        Ok(CrudlyAttrs { table, id_strategy })
+        Ok(CrudlyAttrs {
+            table,
+            explicit_id_strategy,
+        })
     }
+}
+
+struct IdInfo {
+    id_ident: syn::Ident,
+    id_ty: syn::Type,
+    id_column_lit: String,
+    strategy: IdStrategy,
 }
 
 /// Parsed struct + id metadata shared by `Schema` and `Crudly` derives.
 struct CrudlyParsed {
-    attrs: CrudlyAttrs,
     ident: syn::Ident,
     generics: syn::Generics,
-    id_ident: syn::Ident,
-    id_ty: syn::Type,
-    id_column_lit: String,
     table_lit: String,
+    /// `None` when no field is marked with `#[crudly(id)]`.
+    id_info: Option<IdInfo>,
 }
 
 impl CrudlyParsed {
@@ -159,16 +170,33 @@ impl CrudlyParsed {
                 id_marked.push((field, fa));
             }
         }
-        let (id_field, id_fa) = match id_marked.len() {
+
+        let id_info = match id_marked.len() {
             0 => {
-                return Err(syn::Error::new(
-                    input.span(),
-                    format!(
-                        "`#[derive({derive_name})]` requires exactly one field marked with `#[crudly(id)]`"
-                    ),
-                ));
+                if attrs.explicit_id_strategy.is_some() {
+                    return Err(syn::Error::new(
+                        input.span(),
+                        "`#[crudly(db_ids)]` / `#[crudly(external_ids)]` require exactly one field marked with `#[crudly(id)]`",
+                    ));
+                }
+                None
             }
-            1 => (&id_marked[0].0, &id_marked[0].1),
+            1 => {
+                let (id_field, id_fa) = (&id_marked[0].0, &id_marked[0].1);
+                let id_ident = id_field.ident.as_ref().unwrap().clone();
+                let id_ty = id_field.ty.clone();
+                let id_column_lit =
+                    into_row::column_name_for_field(id_field, id_fa, rename_all)?;
+                let strategy = attrs
+                    .explicit_id_strategy
+                    .unwrap_or(IdStrategy::DbAssigned);
+                Some(IdInfo {
+                    id_ident,
+                    id_ty,
+                    id_column_lit,
+                    strategy,
+                })
+            }
             _ => {
                 return Err(syn::Error::new(
                     input.span(),
@@ -178,9 +206,6 @@ impl CrudlyParsed {
                 ));
             }
         };
-        let id_ident = id_field.ident.as_ref().unwrap().clone();
-        let id_ty = id_field.ty.clone();
-        let id_column_lit = into_row::column_name_for_field(id_field, id_fa, rename_all)?;
 
         let table_str = match &attrs.table {
             Some(t) => t.clone(),
@@ -188,70 +213,72 @@ impl CrudlyParsed {
         };
 
         Ok(CrudlyParsed {
-            attrs,
             ident,
             generics: input.generics.clone(),
-            id_ident,
-            id_ty,
-            id_column_lit,
             table_lit: table_str,
+            id_info,
         })
     }
 
     fn schema_and_marker_tokens(&self) -> TokenStream {
         let CrudlyParsed {
-            attrs,
             ident,
             generics,
-            id_ident,
-            id_ty,
-            id_column_lit,
             table_lit,
-            ..
+            id_info,
         } = self;
 
-        let db_ty: TokenStream = quote!(__CrudlyDb);
-
-        let mut impl_generics = generics.clone();
-        impl_generics
-            .params
-            .insert(0, parse_quote!(__CrudlyDb: ::sqlx::Database));
-        let (impl_gen, _, _) = impl_generics.split_for_impl();
-
         let (struct_impl_gen, struct_ty_gen, struct_wc_opt) = generics.split_for_impl();
-        let struct_schema_where = struct_wc_opt
+        let struct_wc = struct_wc_opt
             .map(|w| quote!(#w))
             .unwrap_or_else(|| quote!());
-        let struct_wc_tokens = struct_schema_where.clone();
 
-        let marker_impl = match attrs.id_strategy {
-            IdStrategy::DbAssigned => quote! {
-                impl #struct_impl_gen ::crudly::DBAssignedId for #ident #struct_ty_gen #struct_wc_tokens {}
-            },
-            IdStrategy::External => quote! {
-                impl #struct_impl_gen ::crudly::ExternallyAssignedId for #ident #struct_ty_gen #struct_wc_tokens {}
-            },
-        };
-
-        quote! {
-            impl #impl_gen ::crudly::Schema<#db_ty> for #ident #struct_ty_gen #struct_schema_where
-            {
-                type Id = #id_ty;
-
+        let schema_impl = quote! {
+            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #struct_wc {
                 fn table_name() -> &'static str {
                     #table_lit
                 }
+            }
+        };
 
-                fn id_column() -> &'static str {
-                    #id_column_lit
-                }
+        let id_impls = match id_info {
+            None => quote! {},
+            Some(IdInfo {
+                id_ident,
+                id_ty,
+                id_column_lit,
+                strategy,
+            }) => {
+                let marker_impl = match strategy {
+                    IdStrategy::DbAssigned => quote! {
+                        impl #struct_impl_gen ::crudly::DBAssignedId for #ident #struct_ty_gen #struct_wc {}
+                    },
+                    IdStrategy::External => quote! {
+                        impl #struct_impl_gen ::crudly::ExternallyAssignedId for #ident #struct_ty_gen #struct_wc {}
+                    },
+                };
 
-                fn id(&self) -> Self::Id {
-                    self.#id_ident.clone()
+                quote! {
+                    impl #struct_impl_gen ::crudly::HasId for #ident #struct_ty_gen #struct_wc {
+                        type Id = #id_ty;
+
+                        fn id_column() -> &'static str {
+                            #id_column_lit
+                        }
+
+                        fn id(&self) -> Self::Id {
+                            self.#id_ident.clone()
+                        }
+                    }
+
+                    #marker_impl
                 }
             }
+        };
 
-            #marker_impl
+        quote! {
+            #schema_impl
+            #id_impls
         }
     }
 }

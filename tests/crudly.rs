@@ -2,7 +2,10 @@
 #![allow(dead_code, unused_variables)]
 
 use common::sqlite;
-use crudly::{Crudly, CrudlyDefault, HasColumns, InsertWithId, InsertWithoutId, IntoRow, Schema};
+use crudly::{
+    CrudlyDefault, HasColumns, HasId, Insert, InsertManyWithoutIds, InsertWithoutId, IntoRow,
+    Schema, SelectAll,
+};
 use sqlx::FromRow;
 use sqlx::sqlite::Sqlite;
 
@@ -18,10 +21,7 @@ fn schema_table_inferred_plural_snake() {
     }
     impl CrudlyDefault<Sqlite> for SimpleRecord {}
 
-    assert_eq!(
-        <SimpleRecord as Schema<Sqlite>>::table_name(),
-        "simple_records"
-    );
+    assert_eq!(<SimpleRecord as Schema>::table_name(), "simple_records");
     assert_eq!(SimpleRecord::columns(), vec!["name"]);
 }
 
@@ -36,7 +36,7 @@ fn schema_table_explicit() {
     }
     impl CrudlyDefault<Sqlite> for RenamedTable {}
 
-    assert_eq!(<RenamedTable as Schema<Sqlite>>::table_name(), "widgets");
+    assert_eq!(<RenamedTable as Schema>::table_name(), "widgets");
 }
 
 #[test]
@@ -49,9 +49,9 @@ fn schema_id_column_custom() {
     }
     impl CrudlyDefault<Sqlite> for CustomKeyColumn {}
 
-    assert_eq!(<CustomKeyColumn as Schema<Sqlite>>::id_column(), "row_id");
+    assert_eq!(<CustomKeyColumn as HasId>::id_column(), "row_id");
     let row = CustomKeyColumn { row_id: 7, n: 1 };
-    assert_eq!(<CustomKeyColumn as Schema<Sqlite>>::id(&row), 7);
+    assert_eq!(<CustomKeyColumn as HasId>::id(&row), 7);
 }
 
 #[tokio::test]
@@ -114,7 +114,7 @@ impl CrudlyDefault<Sqlite> for InventoryCategory {}
 #[test]
 fn plural_y_after_consonant() {
     assert_eq!(
-        <InventoryCategory as Schema<Sqlite>>::table_name(),
+        <InventoryCategory as Schema>::table_name(),
         "inventory_categories"
     );
 }

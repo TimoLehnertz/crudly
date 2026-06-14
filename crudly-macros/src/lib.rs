@@ -31,10 +31,16 @@ pub fn derive_into_row(input: TokenStream) -> TokenStream {
 
 /// **Note:** Schema requires the `HasColumns` trait which can be derived by using the `IntoRow` derive.
 ///
-/// Mark the primary key with `#[crudly(id)]` on **exactly one** field (that field must not use `skip`).
-/// Container `#[crudly(...)]`: `table`, `db_ids` (default), `external_ids`.
-/// Derives [`Schema`](https://docs.rs/crudly/latest/crudly/trait.Schema.html) and the appropriate id marker
-/// ([`DBAssignedId`](https://docs.rs/crudly/latest/crudly/trait.DBAssignedId.html) or [`ExternallyAssignedId`](https://docs.rs/crudly/latest/crudly/trait.ExternallyAssignedId.html)).
+/// Always derives [`Schema`](https://docs.rs/crudly/latest/crudly/trait.Schema.html) (just `table_name()`).
+///
+/// If exactly one field is marked with `#[crudly(id)]`, also derives
+/// [`HasId`](https://docs.rs/crudly/latest/crudly/trait.HasId.html) and the appropriate id marker trait
+/// ([`DBAssignedId`](https://docs.rs/crudly/latest/crudly/trait.DBAssignedId.html) or
+/// [`ExternallyAssignedId`](https://docs.rs/crudly/latest/crudly/trait.ExternallyAssignedId.html)).
+/// Without a `#[crudly(id)]` field, `HasId` is **not** derived and neither is any marker trait.
+///
+/// Container `#[crudly(...)]`: `table`, `db_ids` (default when id field present), `external_ids`.
+/// `db_ids` / `external_ids` require a `#[crudly(id)]` field to be present.
 #[proc_macro_derive(Schema, attributes(crudly))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);

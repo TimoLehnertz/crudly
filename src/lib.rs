@@ -17,7 +17,7 @@
 //!
 //! ```rust
 //! # #[allow(unused_variables)]
-//! # use crudly::{Crudly, CrudlyDefault, InsertWithoutId};
+//! # use crudly::{CrudlyDefault, InsertWithoutId, SelectAll, SelectById, UpdateById, DeleteById};
 //! # use sqlx::{SqlitePool, query};
 //! #[derive(sqlx::FromRow, crudly::IntoRow, crudly::Schema)]
 //! struct User {
@@ -25,6 +25,9 @@
 //!     id: i64,
 //!     name: String,
 //! }
+//! // Opt into default crudly implementations. This enables the insert,
+//! // select_all, update_by_id, delete_by_id implementations used below.
+//! // Here instead you could use your own generic sql implementations.
 //! impl crudly::CrudlyDefault<sqlx::Sqlite> for User {}
 //!
 //! const CREATE_USERS_TABLE_SQL: &str =
@@ -86,7 +89,7 @@
 //! IntoRow understands the same attributes as `sqlx::FromRow` supports as of sqlx 0.8.6. So The code below will just work:
 //! ```
 //! # #[allow(unused_variables)]
-//! # use crudly::{Crudly, IntoRow, HasColumns};
+//! # use crudly::{IntoRow, HasColumns};
 //! # use sqlx::{SqlitePool, query};
 //! #[derive(crudly::IntoRow)]
 //! #[sqlx(rename_all = "camelCase")]

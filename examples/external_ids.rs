@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crudly::{Crudly, CrudlyDefault, InsertWithId, IntoRow, Schema};
+use crudly::{CrudlyDefault, Insert, IntoRow, Schema, SelectAll};
 use sqlx::{FromRow, Sqlite, SqlitePool, query};
 
 #[derive(FromRow, IntoRow, Schema)]

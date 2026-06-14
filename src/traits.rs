@@ -5,13 +5,15 @@ use crate::ReusableExecutor;
 /// Column list for a row mapping. Split out so callers can use `Self::columns()` unambiguously
 /// when [`IntoRow`] is implemented for several [`Database`] types.
 pub trait HasColumns {
-    /// The returned columns **must never** be empty!
+    /// The returned columns **MUST NEVER** be empty!
+    /// That is because the sql query builders rely on the fact that there will be at least one column.
     ///
     /// # Returns
     /// the column names for this entity (does **NOT** include the id column).
     fn columns() -> Vec<&'static str>;
 }
 
+/// Tries to be the counterpart to [sqlx::FromRow](https://docs.rs/sqlx/latest/sqlx/trait.FromRow.html).
 /// Binds non-id values onto an SQLx [`sqlx::Arguments`] buffer for [`Database`] `DB`
 /// (`DB::Arguments<'q>`).
 pub trait IntoRow<DB: Database>: HasColumns {
@@ -20,16 +22,8 @@ pub trait IntoRow<DB: Database>: HasColumns {
     fn bind_arguments<'q>(self, arguments: &mut DB::Arguments<'q>) -> sqlx::Result<()>;
 }
 
-/// Describes how a rust struct maps to a database table.
-/// Currently requires that the corresponding table has
-/// a **single** primary key. This restriction might get
-/// lifted in the future.
-pub trait Schema<DB: Database>: HasColumns + Send {
+pub trait HasId {
     type Id: Clone + Send + Sync;
-
-    /// # Returns
-    /// the name of the table for this entity.
-    fn table_name() -> &'static str;
 
     /// # Returns
     /// the name of the id column
@@ -40,44 +34,56 @@ pub trait Schema<DB: Database>: HasColumns + Send {
     fn id(&self) -> Self::Id;
 }
 
+/// Describes how a rust struct maps to a database table.
+pub trait Schema: HasColumns + Send {
+    /// # Returns
+    /// the name of the table for this entity.
+    fn table_name() -> &'static str;
+}
+
 /// [`Schema`] plus binding into `DB::Arguments` (what insert/update need).
 ///
 /// Plain [`Schema`] is enough for reads; rustc does not infer [`IntoRow`] from [`Schema`]
 /// supertraits, so this trait encodes the combined bound explicitly.
-pub trait BindRow<DB: Database>: Schema<DB> + IntoRow<DB> {}
+pub trait BindRow<DB: Database>: Schema + IntoRow<DB> {}
 
-impl<T, DB: Database> BindRow<DB> for T where T: Schema<DB> + IntoRow<DB> {}
+impl<T, DB: Database> BindRow<DB> for T where T: Schema + IntoRow<DB> {}
 
 /// Marker trait that indicates that the id of an entity
 /// is assigned by the database using something like an
 /// AUTOINCREMENT or SERIAL column.
-pub trait DBAssignedId {}
+pub trait DBAssignedId: HasId {}
 
 /// Marker trait that indicates that the id of an entity
 /// is assigned not by the database but instead inside rust
 /// using something like a uuid.
-pub trait ExternallyAssignedId {}
+pub trait ExternallyAssignedId: HasId {}
 
 /// Marker trait that opts an entity into the default `Crudly` and insert trait blanket impls.
-///
-/// Implement this per database backend:
-/// `impl CrudlyDefault<sqlx::Sqlite> for MyEntity {}`
 pub trait CrudlyDefault<DB: Database> {}
 
-pub trait Crudly<DB: Database>: Sized {
-    type Id: Clone + Send + Sync;
-
+pub trait SelectAll<DB: Database>: Sized {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
         E: Executor<'c, Database = DB>;
+}
 
+pub trait DeleteAll<DB: Database>: Sized {
+    fn delete_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
+    where
+        E: Executor<'c, Database = DB>;
+}
+
+pub trait SelectById<DB: Database>: Sized + HasId {
     fn select_by_id<'c, E>(
         id: &Self::Id,
         executor: E,
     ) -> impl Future<Output = sqlx::Result<Option<Self>>> + Send
     where
         E: Executor<'c, Database = DB>;
+}
 
+pub trait SelectByIds<DB: Database>: Sized + HasId {
     /// `batch_size`: max ids per `IN (...)` group; `0` means one group for all ids.
     fn select_by_ids<'c, E>(
         ids: Vec<Self::Id>,
@@ -86,18 +92,26 @@ pub trait Crudly<DB: Database>: Sized {
     ) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
         E: Executor<'c, Database = DB>;
+}
 
+pub trait IdExists<DB: Database>: Sized + HasId {
     fn id_exists<'c, E>(
         id: &Self::Id,
         executor: E,
     ) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = DB>;
+}
 
+pub trait UpdateById<DB: Database>: Sized + HasId {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
     where
         E: Executor<'c, Database = DB>;
+}
 
+// Todo: Add DeleteByIds
+
+pub trait DeleteById<DB: Database>: Sized + HasId {
     fn delete_by_id<'c, E>(
         id: &Self::Id,
         executor: E,
@@ -113,7 +127,9 @@ pub trait InsertWithoutId<DB: Database>: Sized {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
         E: Executor<'c, Database = DB>;
+}
 
+pub trait InsertManyWithoutIds<DB: Database>: Sized {
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
     fn insert_many<E>(
         entities: Vec<Self>,
@@ -124,11 +140,12 @@ pub trait InsertWithoutId<DB: Database>: Sized {
         E: ReusableExecutor<DB> + Send;
 }
 
-pub trait InsertWithId<DB: Database>: Sized {
+pub trait Insert<DB: Database>: Sized {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
         E: Executor<'c, Database = DB>;
-
+}
+pub trait InsertMany<DB: Database>: Sized {
     /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
     fn insert_many<E>(
         entities: Vec<Self>,
@@ -138,5 +155,3 @@ pub trait InsertWithId<DB: Database>: Sized {
     where
         E: ReusableExecutor<DB> + Send;
 }
-
-// todo: add delete_many

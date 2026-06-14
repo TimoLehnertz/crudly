@@ -1,4 +1,5 @@
 use crate::BindRow;
+use crate::HasId;
 use crate::Schema;
 use crate::executor::reusable_executor::ReusableExecutor;
 use sqlx::{
@@ -33,9 +34,11 @@ pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
 }
 
 /// # Returns
-/// a comma delimited string of the columns for
-/// the given schema starting with the id column.
-pub(super) fn comma_delimited_columns_with_id<S: Schema<DB>, DB: Database>() -> String {
+/// a comma delimited string of the columns for the given type starting with the id column.
+pub(super) fn comma_delimited_columns_with_id<S>() -> String
+where
+    S: Schema + HasId,
+{
     std::iter::once(format!("\"{}\"", S::id_column()))
         .chain(S::columns().iter().map(|c| format!("\"{c}\"")))
         .collect::<Vec<String>>()
@@ -46,15 +49,28 @@ pub async fn generic_select_all<S, DB: Database>(
     executor: impl Executor<'_, Database = DB>,
 ) -> sqlx::Result<Vec<S>>
 where
-    S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin,
+    S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
-    let columns = comma_delimited_columns_with_id::<S, DB>();
+    let columns = comma_delimited_columns_with_id::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
 
     let sql = format!("SELECT {columns} FROM {table_name} ORDER BY {id_column} ASC;");
     query_as(&sql).fetch_all(executor).await
+}
+
+pub async fn generic_delete_all<S, DB: Database>(
+    executor: impl Executor<'_, Database = DB>,
+) -> sqlx::Result<()>
+where
+    S: Schema,
+    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+{
+    let table_name = S::table_name();
+    let sql = format!("DELETE FROM {table_name};");
+    query(&sql).execute(executor).await?;
+    Ok(())
 }
 
 pub async fn generic_select_by_id<S, DB>(
@@ -64,10 +80,10 @@ pub async fn generic_select_by_id<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin,
+    S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
-    let columns = comma_delimited_columns_with_id::<S, DB>();
+    let columns = comma_delimited_columns_with_id::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
 
@@ -85,14 +101,14 @@ pub async fn generic_select_by_ids<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: Schema<DB> + for<'r> FromRow<'r, DB::Row> + Unpin,
+    S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     if ids.is_empty() {
         return Ok(Vec::new());
     }
 
-    let columns = comma_delimited_columns_with_id::<S, DB>();
+    let columns = comma_delimited_columns_with_id::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
     let ids_len = ids.len();
@@ -139,7 +155,7 @@ pub async fn generic_id_exists<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: Schema<DB>,
+    S: Schema + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
@@ -163,11 +179,11 @@ pub async fn generic_insert_with_id<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: BindRow<DB>,
+    S: BindRow<DB> + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
-    let columns = comma_delimited_columns_with_id::<S, DB>();
+    let columns = comma_delimited_columns_with_id::<S>();
     let placeholders = format_placeholders::<DB>(S::columns().len() + 1); // +1 for the id column
 
     let sql = format!("INSERT INTO {table_name} ({columns}) VALUES ({placeholders})");
@@ -289,7 +305,7 @@ where
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     E: ReusableExecutor<DB> + Send,
     DB: Database + FormatPlaceholder,
-    S: BindRow<DB>,
+    S: BindRow<DB> + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     if entities.is_empty() {
@@ -297,7 +313,7 @@ where
     }
 
     let table_name = S::table_name();
-    let columns = comma_delimited_columns_with_id::<S, DB>();
+    let columns = comma_delimited_columns_with_id::<S>();
 
     let cols_per_row = S::columns().len() + 1; // +1 for the id column
 
@@ -354,7 +370,7 @@ where
     DB: Database + FormatPlaceholder,
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: BindRow<DB>,
+    S: BindRow<DB> + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
@@ -398,7 +414,7 @@ where
     DB: Database + FormatPlaceholder,
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: Schema<DB>,
+    S: Schema + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
@@ -411,10 +427,11 @@ where
 
     Ok(result.rows_affected() > 0)
 }
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{HasColumns, IntoRow};
+    use crate::{HasColumns, HasId, IntoRow, Schema};
     use sqlx::{Sqlite, SqliteConnection, SqlitePool};
 
     pub struct Dummy;
@@ -434,7 +451,13 @@ pub mod tests {
         }
     }
 
-    impl Schema<Sqlite> for Dummy {
+    impl Schema for Dummy {
+        fn table_name() -> &'static str {
+            unimplemented!()
+        }
+    }
+
+    impl HasId for Dummy {
         type Id = i64;
 
         fn id(&self) -> Self::Id {
@@ -442,10 +465,6 @@ pub mod tests {
         }
 
         fn id_column() -> &'static str {
-            unimplemented!()
-        }
-
-        fn table_name() -> &'static str {
             unimplemented!()
         }
     }

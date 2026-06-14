@@ -1,5 +1,8 @@
 #![allow(unused_variables)]
-use crudly::{Crudly, CrudlyDefault, InsertWithoutId, IntoRow, Schema};
+use crudly::{
+    CrudlyDefault, DeleteById, InsertWithoutId, IntoRow, Schema, SelectAll, SelectById,
+    UpdateById,
+};
 use sqlx::{FromRow, Sqlite, SqlitePool, query};
 
 const CREATE_USERS_TABLE_SQL: &str =
