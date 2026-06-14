@@ -189,7 +189,7 @@
 //! defined in the [sql] module useful.
 //!
 //! ## MSRV
-//! The minimum supported Rust version is 1.85.0 (the version that released edition 2024).
+//! The minimum supported Rust version is 1.94.0 (the version that sqlx 0.9.0 requires).
 //!
 //! ## Contributing
 //! Contributions, bug reports and feature requests are always welcome! Please open an issue or a pull request on
