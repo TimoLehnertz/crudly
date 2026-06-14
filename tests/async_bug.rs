@@ -1,6 +1,7 @@
+use crudly::sql::{FormatPlaceholder, LastInsertedRowId, generic_insert_returning_id};
 use crudly::{
-    CrudlyDefault, DeleteById, FormatPlaceholder, IdExists, Insert, InsertWithoutId, IntoRow,
-    LastInsertedRowId, Schema, SelectAll, SelectById, UpdateById, generic_insert_returning_id,
+    CrudlyDefault, DeleteById, IdExists, Insert, InsertWithoutId, IntoRow, Schema, SelectAll,
+    SelectById, UpdateById,
 };
 use sqlx::{Database, Executor, IntoArguments, prelude::FromRow};
 

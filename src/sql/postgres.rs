@@ -1,15 +1,15 @@
-use crate::executor::reusable_executor::ReusableExecutor;
-use crate::executor::{
+use crate::sql::{FormatPlaceholder, RowsAffected, reusable_executor::ReusableExecutor};
+use crate::sql::{
     format_placeholders, generic_delete_all, generic_delete_by_id, generic_id_exists,
     generic_insert, generic_insert_many_with_id, generic_insert_many_without_id,
     generic_insert_with_id, generic_select_all, generic_select_all_no_id, generic_select_by_id,
     generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
-    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
-    HasColumns, HasId, IdExists, Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds,
-    InsertNoId, InsertWithoutId, IntoRow, NoId, RowsAffected, Schema, SelectAll, SelectAllNoId,
-    SelectById, SelectByIds, UpdateById,
+    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, HasColumns, HasId,
+    IdExists, Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds, InsertNoId,
+    InsertWithoutId, IntoRow, NoId, Schema, SelectAll, SelectAllNoId, SelectById, SelectByIds,
+    UpdateById,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
 use sqlx::{Encode, Executor, FromRow, Postgres, Type, query_scalar_with};

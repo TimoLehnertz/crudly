@@ -2,7 +2,7 @@ use crate::HasColumns;
 use crate::HasId;
 use crate::IntoRow;
 use crate::Schema;
-use crate::executor::reusable_executor::ReusableExecutor;
+use crate::sql::reusable_executor::ReusableExecutor;
 use sqlx::{
     Arguments, Database, Encode, Executor, FromRow, IntoArguments, Type, query, query_as,
     query_with,
@@ -504,10 +504,6 @@ pub mod tests {
             unimplemented!()
         }
     }
-
-    // impl BindRow<Sqlite> for Dummy {}
-
-    // tests that the generic_insert_many_without_id can be used with all common implementors of [sqlx::Executor]
 
     #[allow(dead_code)]
     async fn test_exec_pool_owned(pool: SqlitePool) {

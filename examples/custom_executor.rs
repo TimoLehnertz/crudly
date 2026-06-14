@@ -1,4 +1,5 @@
-use crudly::{CrudlyDefault, DBAssignedId, IntoRow, Schema, generic_insert_returning_id};
+use crudly::sql::generic_insert_returning_id;
+use crudly::{CrudlyDefault, DBAssignedId, IntoRow, Schema};
 use sqlx::{Database, Executor, FromRow, Sqlite, SqlitePool, query};
 use std::future::Future;
 

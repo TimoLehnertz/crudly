@@ -1,15 +1,16 @@
-use crate::executor::reusable_executor::ReusableExecutor;
-use crate::executor::{
+use crate::sql::{
+    FormatPlaceholder, LastInsertedRowId, RowsAffected, reusable_executor::ReusableExecutor,
+};
+use crate::sql::{
     generic_delete_all, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
     generic_insert_many_without_id, generic_insert_returning_id, generic_insert_with_id,
     generic_select_all, generic_select_all_no_id, generic_select_by_id, generic_select_by_ids,
     generic_update_by_id,
 };
 use crate::{
-    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
-    HasId, IdExists, Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds, InsertNoId,
-    InsertWithoutId, IntoRow, LastInsertedRowId, NoId, RowsAffected, Schema, SelectAll,
-    SelectAllNoId, SelectById, SelectByIds, UpdateById,
+    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, HasId, IdExists,
+    Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds, InsertNoId, InsertWithoutId, IntoRow,
+    NoId, Schema, SelectAll, SelectAllNoId, SelectById, SelectByIds, UpdateById,
 };
 use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
 use sqlx::{Encode, Executor, FromRow, Sqlite, Type};
@@ -223,7 +224,7 @@ where
         E: Executor<'c, Database = Sqlite>,
     {
         async move {
-            crate::executor::generic_insert::<Self, Sqlite>(executor, self)
+            crate::sql::generic_insert::<Self, Sqlite>(executor, self)
                 .await
                 .map(|_| ())
         }

@@ -1,6 +1,6 @@
 use sqlx::{Database, Executor};
 
-use crate::ReusableExecutor;
+use crate::sql::reusable_executor::ReusableExecutor;
 
 /// Column list for a row mapping. Split out from IntoRow so callers can use `Self::columns()` unambiguously
 /// when [`IntoRow`] is implemented for several [`Database`] types.
@@ -60,7 +60,7 @@ pub trait ExternallyAssignedId: HasId {}
 /// Emitted automatically by `#[derive(Schema)]` when no field is marked with `#[crudly(id)]`.
 pub trait NoId: Send {}
 
-/// Marker trait that opts an entity into the default `Crudly` and insert trait blanket impls.
+/// Marker trait that opts an entity into the default crudly helpers.
 pub trait CrudlyDefault {}
 
 pub trait SelectAll<DB: Database>: Sized {

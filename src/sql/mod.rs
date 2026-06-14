@@ -1,4 +1,7 @@
+//! SQL helpers
 mod generic;
+pub use generic::*;
+
 pub mod reusable_executor;
 pub use reusable_executor::ReusableExecutor;
 
@@ -8,5 +11,3 @@ mod mysql;
 mod postgres;
 #[cfg(feature = "sqlite")]
 mod sqlite;
-
-pub use generic::*;
