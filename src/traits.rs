@@ -19,6 +19,14 @@ pub trait HasColumns {
 pub trait IntoRow<DB: Database>: HasColumns {
     /// Binds values in the same order as [`HasColumns::columns`].
     /// Does **not** bind the id.
+    ///
+    /// ## Ownership
+    /// the MySql and postgres drivers allow binding to arguments by reference without a performance penalty.
+    /// So for them binding by reference is more ergonomic but should be identical performance wise.
+    /// Sqlite however clones values that are bound by reference so the sqlite driver performs better with owned bindings.
+    ///
+    /// So forcing all entities to give up ownership here is a tradeoff. It means that no data is cloned in the driver.
+    /// However this way users might need to clone their entities when they still need them after binding.
     fn bind_arguments(self, arguments: &mut DB::Arguments) -> sqlx::Result<()>;
 }
 
