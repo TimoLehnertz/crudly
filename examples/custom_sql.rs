@@ -13,7 +13,10 @@ struct User {
     name: String,
 }
 
-/// Users can define their own local trait and implement it as a blanket impl.
+/// Define a trait for your operations.
+///
+/// Note that this trait is not generic over the database. That is to make this example more readable.
+/// The crudly traits are all generic over the db but the generics of that are much more ugly than committing to a single database.
 trait MyCustomInsert: Sized {
     fn insert<'e>(
         self,
@@ -21,6 +24,7 @@ trait MyCustomInsert: Sized {
     ) -> impl Future<Output = sqlx::Result<i64>> + Send;
 }
 
+// Create a blanked impl that implements your trait.
 impl<T> MyCustomInsert for T
 where
     T: Schema + IntoRow<Sqlite> + DBAssignedId,
