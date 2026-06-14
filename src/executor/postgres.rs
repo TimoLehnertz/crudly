@@ -5,8 +5,8 @@ use crate::executor::{
     generic_select_all, generic_select_by_id, generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
-    BindRow, CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId,
-    FormatPlaceholder, HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId,
+    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
+    HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow,
     RowsAffected, Schema, SelectAll, SelectById, SelectByIds, UpdateById,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
@@ -28,7 +28,7 @@ impl RowsAffected for PgQueryResult {
 pub async fn pg_insert<'c, S, E>(entity: S, executor: E) -> sqlx::Result<i64>
 where
     E: Executor<'c, Database = Postgres>,
-    S: BindRow<Postgres> + HasId + DBAssignedId,
+    S: Schema + IntoRow<Postgres> + HasId + DBAssignedId,
 {
     let table_name = S::table_name();
     let columns = S::columns()
@@ -130,7 +130,7 @@ where
 
 impl<T> UpdateById<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + BindRow<Postgres> + Send,
+    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
 {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
@@ -159,7 +159,7 @@ where
 
 impl<T> InsertWithoutId<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + BindRow<Postgres> + DBAssignedId + Send,
+    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + DBAssignedId + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -171,7 +171,7 @@ where
 
 impl<T> InsertManyWithoutIds<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + BindRow<Postgres> + DBAssignedId + Send,
+    T: CrudlyDefault<Postgres> + Schema + IntoRow<Postgres> + DBAssignedId + Send,
 {
     async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
@@ -183,7 +183,7 @@ where
 
 impl<T> Insert<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + BindRow<Postgres> + ExternallyAssignedId + Send,
+    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
     <T as HasId>::Id: 'static,
 {
@@ -197,7 +197,7 @@ where
 
 impl<T> InsertMany<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + BindRow<Postgres> + ExternallyAssignedId + Send,
+    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
     <T as HasId>::Id: 'static,
 {

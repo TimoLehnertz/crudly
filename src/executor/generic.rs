@@ -1,5 +1,5 @@
-use crate::BindRow;
 use crate::HasId;
+use crate::IntoRow;
 use crate::Schema;
 use crate::executor::reusable_executor::ReusableExecutor;
 use sqlx::{
@@ -179,7 +179,7 @@ pub async fn generic_insert_with_id<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: BindRow<DB> + HasId,
+    S: Schema + IntoRow<DB> + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
@@ -203,7 +203,7 @@ pub async fn generic_insert_returning_id<S, DB>(
 where
     DB: Database + FormatPlaceholder,
     DB::QueryResult: LastInsertedRowId,
-    S: BindRow<DB>,
+    S: Schema + IntoRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
@@ -236,7 +236,7 @@ pub async fn generic_insert_many_without_id<S, DB, E>(
 where
     E: ReusableExecutor<DB>,
     DB: Database + FormatPlaceholder,
-    S: BindRow<DB>,
+    S: Schema + IntoRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     if entities.is_empty() {
@@ -305,7 +305,7 @@ where
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     E: ReusableExecutor<DB> + Send,
     DB: Database + FormatPlaceholder,
-    S: BindRow<DB> + HasId,
+    S: Schema + IntoRow<DB> + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     if entities.is_empty() {
@@ -370,7 +370,7 @@ where
     DB: Database + FormatPlaceholder,
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
-    S: BindRow<DB> + HasId,
+    S: Schema + IntoRow<DB> + HasId,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();

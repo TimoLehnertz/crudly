@@ -5,8 +5,8 @@ use crate::executor::{
     generic_select_all, generic_select_by_id, generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
-    BindRow, CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId,
-    FormatPlaceholder, HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId,
+    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
+    HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow,
     LastInsertedRowId, RowsAffected, Schema, SelectAll, SelectById, SelectByIds, UpdateById,
 };
 use sqlx::MySql;
@@ -107,7 +107,7 @@ where
 
 impl<T> UpdateById<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + BindRow<MySql> + Send,
+    T: CrudlyDefault<MySql> + Schema + HasId + IntoRow<MySql> + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
 {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
@@ -136,7 +136,7 @@ where
 
 impl<T> InsertWithoutId<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + BindRow<MySql> + DBAssignedId + Send,
+    T: CrudlyDefault<MySql> + Schema + IntoRow<MySql> + DBAssignedId + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -148,7 +148,7 @@ where
 
 impl<T> InsertManyWithoutIds<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + BindRow<MySql> + DBAssignedId + Send,
+    T: CrudlyDefault<MySql> + Schema + IntoRow<MySql> + DBAssignedId + Send,
 {
     async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
@@ -160,7 +160,7 @@ where
 
 impl<T> Insert<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + BindRow<MySql> + ExternallyAssignedId + Send,
+    T: CrudlyDefault<MySql> + Schema + HasId + IntoRow<MySql> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
     <T as HasId>::Id: 'static,
 {
@@ -174,7 +174,7 @@ where
 
 impl<T> InsertMany<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + BindRow<MySql> + ExternallyAssignedId + Send,
+    T: CrudlyDefault<MySql> + Schema + HasId + IntoRow<MySql> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
     <T as HasId>::Id: 'static,
 {

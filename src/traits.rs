@@ -41,14 +41,6 @@ pub trait Schema: HasColumns + Send {
     fn table_name() -> &'static str;
 }
 
-/// [`Schema`] plus binding into `DB::Arguments` (what insert/update need).
-///
-/// Plain [`Schema`] is enough for reads; rustc does not infer [`IntoRow`] from [`Schema`]
-/// supertraits, so this trait encodes the combined bound explicitly.
-pub trait BindRow<DB: Database>: Schema + IntoRow<DB> {}
-
-impl<T, DB: Database> BindRow<DB> for T where T: Schema + IntoRow<DB> {}
-
 /// Marker trait that indicates that the id of an entity
 /// is assigned by the database using something like an
 /// AUTOINCREMENT or SERIAL column.

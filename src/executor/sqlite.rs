@@ -5,8 +5,8 @@ use crate::executor::{
     generic_select_all, generic_select_by_id, generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
-    BindRow, CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId,
-    FormatPlaceholder, HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId,
+    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
+    HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow,
     LastInsertedRowId, RowsAffected, Schema, SelectAll, SelectById, SelectByIds, UpdateById,
 };
 use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
@@ -106,7 +106,7 @@ where
 
 impl<T> UpdateById<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + BindRow<Sqlite> + Send,
+    T: CrudlyDefault<Sqlite> + Schema + HasId + IntoRow<Sqlite> + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
@@ -135,7 +135,7 @@ where
 
 impl<T> InsertWithoutId<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + BindRow<Sqlite> + DBAssignedId + Send,
+    T: CrudlyDefault<Sqlite> + Schema + IntoRow<Sqlite> + DBAssignedId + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -147,7 +147,7 @@ where
 
 impl<T> InsertManyWithoutIds<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + BindRow<Sqlite> + DBAssignedId + Send,
+    T: CrudlyDefault<Sqlite> + Schema + IntoRow<Sqlite> + DBAssignedId + Send,
 {
     fn insert_many<E>(
         entities: Vec<Self>,
@@ -168,7 +168,7 @@ where
 
 impl<T> Insert<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + BindRow<Sqlite> + ExternallyAssignedId + Send,
+    T: CrudlyDefault<Sqlite> + Schema + HasId + IntoRow<Sqlite> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
     <T as HasId>::Id: 'static,
 {
@@ -182,7 +182,7 @@ where
 
 impl<T> InsertMany<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + BindRow<Sqlite> + ExternallyAssignedId + Send,
+    T: CrudlyDefault<Sqlite> + Schema + HasId + IntoRow<Sqlite> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
     <T as HasId>::Id: 'static,
 {

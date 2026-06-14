@@ -1,6 +1,6 @@
 //! This file is a sandbox for testing what the derived code should look like.
 use crudly::{
-    BindRow, DBAssignedId, DeleteById, ExternallyAssignedId, HasColumns, HasId, IdExists, Insert,
+    DBAssignedId, DeleteById, ExternallyAssignedId, HasColumns, HasId, IdExists, Insert,
     InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow, ReusableExecutor, Schema,
     SelectAll, SelectById, SelectByIds, UpdateById, generic_delete_by_id, generic_id_exists,
     generic_insert_many_with_id, generic_insert_many_without_id, generic_insert_returning_id,
@@ -110,7 +110,7 @@ impl ExternallyAssignedId for User {}
 
 impl SelectAll<Sqlite> for User
 where
-    User: Schema + HasId + BindRow<Sqlite>,
+    User: Schema + HasId + IntoRow<Sqlite>,
     Self: for<'r> FromRow<'r, sqlx::sqlite::SqliteRow> + Unpin + Send,
 {
     async fn select_all<'c, E>(executor: E) -> sqlx::Result<Vec<Self>>
@@ -181,7 +181,7 @@ where
 
 impl UpdateById<Sqlite> for User
 where
-    User: Schema + HasId + BindRow<Sqlite>,
+    User: Schema + HasId + IntoRow<Sqlite>,
     for<'q> <User as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     async fn update_by_id<'c, E>(self, executor: E) -> sqlx::Result<bool>
@@ -194,7 +194,7 @@ where
 
 impl InsertWithoutId<Sqlite> for User
 where
-    User: Schema + BindRow<Sqlite>,
+    User: Schema + IntoRow<Sqlite>,
 {
     async fn insert<'c, E>(self, executor: E) -> sqlx::Result<i64>
     where
@@ -206,7 +206,7 @@ where
 
 impl InsertManyWithoutIds<Sqlite> for User
 where
-    User: Schema + BindRow<Sqlite>,
+    User: Schema + IntoRow<Sqlite>,
 {
     async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
@@ -220,7 +220,7 @@ impl Insert<Sqlite> for User
 where
     <User as HasId>::Id: sqlx::Type<Sqlite>,
     for<'q> <User as HasId>::Id: sqlx::Encode<'q, Sqlite>,
-    User: Schema + HasId + BindRow<Sqlite>,
+    User: Schema + HasId + IntoRow<Sqlite>,
 {
     async fn insert<'c, E>(self, executor: E) -> sqlx::Result<()>
     where
@@ -234,7 +234,7 @@ impl InsertMany<Sqlite> for User
 where
     <User as HasId>::Id: sqlx::Type<Sqlite>,
     for<'q> <User as HasId>::Id: sqlx::Encode<'q, Sqlite>,
-    User: Schema + HasId + BindRow<Sqlite>,
+    User: Schema + HasId + IntoRow<Sqlite>,
 {
     async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where

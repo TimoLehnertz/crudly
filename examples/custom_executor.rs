@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crudly::{BindRow, CrudlyDefault, DBAssignedId, IntoRow, Schema, generic_insert_returning_id};
+use crudly::{CrudlyDefault, DBAssignedId, IntoRow, Schema, generic_insert_returning_id};
 use sqlx::{Database, Executor, FromRow, Sqlite, SqlitePool, query};
 use std::future::Future;
 
@@ -29,7 +29,7 @@ trait InsertWithTheAnswerToEverything<DB: Database>: Sized {
 
 impl<T> InsertWithTheAnswerToEverything<Sqlite> for T
 where
-    T: BindRow<Sqlite> + DBAssignedId,
+    T: Schema + IntoRow<Sqlite> + DBAssignedId,
 {
     fn insert_with_answer<'e, 'c, E>(
         self,
