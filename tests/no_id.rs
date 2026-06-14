@@ -2,7 +2,7 @@ use common::sqlite;
 use crudly::{
     CrudlyDefault, DeleteAll, InsertManyNoId, InsertNoId, IntoRow, Schema, SelectAllNoId,
 };
-use sqlx::{Sqlite, prelude::FromRow};
+use sqlx::prelude::FromRow;
 
 mod common;
 
@@ -15,7 +15,7 @@ pub struct StudentXCourse {
     course_id: i64,
 }
 
-impl CrudlyDefault<Sqlite> for StudentXCourse {}
+impl CrudlyDefault for StudentXCourse {}
 
 impl StudentXCourse {
     fn new(student_id: i64, course_id: i64) -> Self {

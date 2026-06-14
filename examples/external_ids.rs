@@ -1,6 +1,5 @@
-#![allow(unused_variables)]
 use crudly::{CrudlyDefault, Insert, IntoRow, Schema, SelectAll};
-use sqlx::{FromRow, Sqlite, SqlitePool, query};
+use sqlx::{FromRow, SqlitePool, query};
 
 #[derive(FromRow, IntoRow, Schema)]
 #[crudly(external_ids)] // Here the id will be assigned inside of rust instead of in the db
@@ -10,7 +9,7 @@ struct User {
     name: String,
 }
 
-impl CrudlyDefault<Sqlite> for User {}
+impl CrudlyDefault for User {}
 
 const CREATE_USERS_TABLE_SQL: &str =
     "CREATE TABLE users (id INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL);";

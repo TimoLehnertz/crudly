@@ -1,4 +1,3 @@
-#![allow(unused_variables)]
 use crudly::{CrudlyDefault, DBAssignedId, IntoRow, Schema, generic_insert_returning_id};
 use sqlx::{Database, Executor, FromRow, Sqlite, SqlitePool, query};
 use std::future::Future;
@@ -13,7 +12,7 @@ struct User {
     name: String,
 }
 
-impl CrudlyDefault<Sqlite> for User {}
+impl CrudlyDefault for User {}
 
 /// Users can define their own local trait and implement it as a blanket impl.
 trait InsertWithTheAnswerToEverything<DB: Database>: Sized {

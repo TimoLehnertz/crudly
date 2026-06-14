@@ -61,7 +61,7 @@ pub trait ExternallyAssignedId: HasId {}
 pub trait NoId: Send {}
 
 /// Marker trait that opts an entity into the default `Crudly` and insert trait blanket impls.
-pub trait CrudlyDefault<DB: Database> {}
+pub trait CrudlyDefault {}
 
 pub trait SelectAll<DB: Database>: Sized {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send

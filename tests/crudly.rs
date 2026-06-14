@@ -7,7 +7,6 @@ use crudly::{
     Schema, SelectAll,
 };
 use sqlx::FromRow;
-use sqlx::sqlite::Sqlite;
 
 mod common;
 
@@ -19,7 +18,7 @@ fn schema_table_inferred_plural_snake() {
         id: i64,
         name: String,
     }
-    impl CrudlyDefault<Sqlite> for SimpleRecord {}
+    impl CrudlyDefault for SimpleRecord {}
 
     assert_eq!(<SimpleRecord as Schema>::table_name(), "simple_records");
     assert_eq!(<SimpleRecord as HasColumns>::columns(), vec!["name"]);
@@ -34,7 +33,7 @@ fn schema_table_explicit() {
         id: i64,
         flag: bool,
     }
-    impl CrudlyDefault<Sqlite> for RenamedTable {}
+    impl CrudlyDefault for RenamedTable {}
 
     assert_eq!(<RenamedTable as Schema>::table_name(), "widgets");
 }
@@ -47,7 +46,7 @@ fn schema_id_column_custom() {
         row_id: i32,
         n: u8,
     }
-    impl CrudlyDefault<Sqlite> for CustomKeyColumn {}
+    impl CrudlyDefault for CustomKeyColumn {}
 
     assert_eq!(<CustomKeyColumn as HasId>::id_column(), "row_id");
     let row = CustomKeyColumn { row_id: 7, n: 1 };
@@ -69,7 +68,7 @@ async fn blanket_default_crud_is_available() {
         id: i64,
         label: String,
     }
-    impl CrudlyDefault<Sqlite> for TinyRow {}
+    impl CrudlyDefault for TinyRow {}
 
     let all = TinyRow::select_all(&pool).await.unwrap();
     assert!(all.is_empty());
@@ -109,7 +108,7 @@ struct InventoryCategory {
     id: i32,
     title: String,
 }
-impl CrudlyDefault<Sqlite> for InventoryCategory {}
+impl CrudlyDefault for InventoryCategory {}
 
 #[test]
 fn plural_y_after_consonant() {
@@ -126,7 +125,7 @@ struct PresetIdRow {
     id: i64,
     label: String,
 }
-impl CrudlyDefault<Sqlite> for PresetIdRow {}
+impl CrudlyDefault for PresetIdRow {}
 
 #[tokio::test]
 async fn external_ids_insert_with_id() {

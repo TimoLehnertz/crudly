@@ -36,7 +36,7 @@ impl LastInsertedRowId for MySqlQueryResult {
 
 impl<T> SelectAll<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
 {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
@@ -48,7 +48,7 @@ where
 
 impl<T> DeleteAll<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + Send,
+    T: CrudlyDefault + Schema + Send,
 {
     fn delete_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
@@ -60,7 +60,7 @@ where
 
 impl<T> SelectById<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
 {
     fn select_by_id<'c, E>(
@@ -76,7 +76,7 @@ where
 
 impl<T> SelectByIds<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
 {
     fn select_by_ids<'c, E>(
@@ -93,7 +93,7 @@ where
 
 impl<T> IdExists<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + Send,
+    T: CrudlyDefault + Schema + HasId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
 {
     fn id_exists<'c, E>(
@@ -109,7 +109,7 @@ where
 
 impl<T> UpdateById<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + IntoRow<MySql> + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<MySql> + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
 {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
@@ -122,7 +122,7 @@ where
 
 impl<T> DeleteById<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + Send,
+    T: CrudlyDefault + Schema + HasId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
 {
     fn delete_by_id<'c, E>(
@@ -138,7 +138,7 @@ where
 
 impl<T> InsertWithoutId<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + IntoRow<MySql> + DBAssignedId + Send,
+    T: CrudlyDefault + Schema + IntoRow<MySql> + DBAssignedId + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -150,7 +150,7 @@ where
 
 impl<T> InsertManyWithoutIds<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + IntoRow<MySql> + DBAssignedId + Send,
+    T: CrudlyDefault + Schema + IntoRow<MySql> + DBAssignedId + Send,
 {
     async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
@@ -162,7 +162,7 @@ where
 
 impl<T> Insert<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + IntoRow<MySql> + ExternallyAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<MySql> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
     <T as HasId>::Id: 'static,
 {
@@ -176,7 +176,7 @@ where
 
 impl<T> InsertMany<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + HasId + IntoRow<MySql> + ExternallyAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<MySql> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, MySql> + Type<MySql>,
     <T as HasId>::Id: 'static,
 {
@@ -190,7 +190,7 @@ where
 
 impl<T> SelectAllNoId<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + NoId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + NoId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
 {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
@@ -202,7 +202,7 @@ where
 
 impl<T> InsertNoId<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + NoId + IntoRow<MySql> + Send,
+    T: CrudlyDefault + Schema + NoId + IntoRow<MySql> + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
@@ -218,7 +218,7 @@ where
 
 impl<T> InsertManyNoId<MySql> for T
 where
-    T: CrudlyDefault<MySql> + Schema + NoId + IntoRow<MySql> + Send,
+    T: CrudlyDefault + Schema + NoId + IntoRow<MySql> + Send,
 {
     fn insert_many<E>(
         entities: Vec<Self>,

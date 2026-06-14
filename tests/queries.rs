@@ -2,7 +2,7 @@ use crudly::{
     CrudlyDefault, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow, Schema,
     SelectAll, SelectById, SelectByIds,
 };
-use sqlx::{Sqlite, SqlitePool, prelude::FromRow, query};
+use sqlx::{SqlitePool, prelude::FromRow, query};
 
 #[derive(FromRow, IntoRow, Schema, Default, Clone, PartialEq, Debug)]
 #[crudly(table = "users")]
@@ -11,7 +11,7 @@ pub struct UserInternalID {
     pub id: i64,
     pub name: String,
 }
-impl CrudlyDefault<Sqlite> for UserInternalID {}
+impl CrudlyDefault for UserInternalID {}
 
 #[derive(FromRow, IntoRow, Schema, Default, Clone, PartialEq, Debug)]
 #[crudly(external_ids, table = "users")]
@@ -20,7 +20,7 @@ pub struct UserExternalID {
     pub id: i64,
     pub name: String,
 }
-impl CrudlyDefault<Sqlite> for UserExternalID {}
+impl CrudlyDefault for UserExternalID {}
 
 async fn sqlite_mem() -> SqlitePool {
     let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();

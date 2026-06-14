@@ -54,7 +54,8 @@ pub struct User {
     pub id: i64,
     pub name: String,
 }
-impl CrudlyDefault<sqlx::Sqlite> for User {}
+
+impl CrudlyDefault for User {}
 
 #[derive(FromRow, IntoRow, Schema, Default)]
 #[crudly(external_ids)]
@@ -63,7 +64,8 @@ pub struct UserExternalIds {
     pub id: i64,
     pub name: String,
 }
-impl CrudlyDefault<sqlx::Sqlite> for UserExternalIds {}
+
+impl CrudlyDefault for UserExternalIds {}
 
 /// This used to not compile with the very unhelpful error: lifetime bound not satisfied
 /// this is a known limitation that will be removed in the future (see issue #100013 <https://github.com/rust-lang/rust/issues/100013> for more information)

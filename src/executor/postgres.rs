@@ -60,7 +60,7 @@ where
 
 impl<T> SelectAll<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
 {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
@@ -72,7 +72,7 @@ where
 
 impl<T> DeleteAll<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + Send,
+    T: CrudlyDefault + Schema + Send,
 {
     fn delete_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
@@ -84,7 +84,7 @@ where
 
 impl<T> SelectById<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
 {
     fn select_by_id<'c, E>(
@@ -100,7 +100,7 @@ where
 
 impl<T> SelectByIds<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
 {
     fn select_by_ids<'c, E>(
@@ -117,7 +117,7 @@ where
 
 impl<T> IdExists<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + Send,
+    T: CrudlyDefault + Schema + HasId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
 {
     fn id_exists<'c, E>(
@@ -133,7 +133,7 @@ where
 
 impl<T> UpdateById<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Postgres> + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
 {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
@@ -146,7 +146,7 @@ where
 
 impl<T> DeleteById<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + Send,
+    T: CrudlyDefault + Schema + HasId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
 {
     fn delete_by_id<'c, E>(
@@ -162,7 +162,7 @@ where
 
 impl<T> InsertWithoutId<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + DBAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Postgres> + DBAssignedId + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -174,7 +174,7 @@ where
 
 impl<T> InsertManyWithoutIds<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + IntoRow<Postgres> + DBAssignedId + Send,
+    T: CrudlyDefault + Schema + IntoRow<Postgres> + DBAssignedId + Send,
 {
     async fn insert_many<E>(entities: Vec<Self>, batch_size: usize, executor: E) -> sqlx::Result<()>
     where
@@ -186,7 +186,7 @@ where
 
 impl<T> Insert<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + ExternallyAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Postgres> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
     <T as HasId>::Id: 'static,
 {
@@ -200,7 +200,7 @@ where
 
 impl<T> InsertMany<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + HasId + IntoRow<Postgres> + ExternallyAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Postgres> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Postgres> + Type<Postgres>,
     <T as HasId>::Id: 'static,
 {
@@ -214,7 +214,7 @@ where
 
 impl<T> SelectAllNoId<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + NoId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + NoId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
 {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
@@ -226,7 +226,7 @@ where
 
 impl<T> InsertNoId<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + NoId + IntoRow<Postgres> + Send,
+    T: CrudlyDefault + Schema + NoId + IntoRow<Postgres> + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
@@ -242,7 +242,7 @@ where
 
 impl<T> InsertManyNoId<Postgres> for T
 where
-    T: CrudlyDefault<Postgres> + Schema + NoId + IntoRow<Postgres> + Send,
+    T: CrudlyDefault + Schema + NoId + IntoRow<Postgres> + Send,
 {
     fn insert_many<E>(
         entities: Vec<Self>,

@@ -35,7 +35,7 @@ impl LastInsertedRowId for SqliteQueryResult {
 
 impl<T> SelectAll<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
 {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
@@ -47,7 +47,7 @@ where
 
 impl<T> DeleteAll<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + Send,
+    T: CrudlyDefault + Schema + Send,
 {
     fn delete_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
@@ -59,7 +59,7 @@ where
 
 impl<T> SelectById<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     fn select_by_id<'c, E>(
@@ -75,7 +75,7 @@ where
 
 impl<T> SelectByIds<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + HasId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     fn select_by_ids<'c, E>(
@@ -92,7 +92,7 @@ where
 
 impl<T> IdExists<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + Send,
+    T: CrudlyDefault + Schema + HasId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     fn id_exists<'c, E>(
@@ -108,7 +108,7 @@ where
 
 impl<T> UpdateById<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + IntoRow<Sqlite> + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Sqlite> + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     fn update_by_id<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<bool>> + Send
@@ -121,7 +121,7 @@ where
 
 impl<T> DeleteById<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + Send,
+    T: CrudlyDefault + Schema + HasId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
 {
     fn delete_by_id<'c, E>(
@@ -137,7 +137,7 @@ where
 
 impl<T> InsertWithoutId<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + IntoRow<Sqlite> + DBAssignedId + Send,
+    T: CrudlyDefault + Schema + IntoRow<Sqlite> + DBAssignedId + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<i64>> + Send
     where
@@ -149,7 +149,7 @@ where
 
 impl<T> InsertManyWithoutIds<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + IntoRow<Sqlite> + DBAssignedId + Send,
+    T: CrudlyDefault + Schema + IntoRow<Sqlite> + DBAssignedId + Send,
 {
     fn insert_many<E>(
         entities: Vec<Self>,
@@ -170,7 +170,7 @@ where
 
 impl<T> Insert<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + IntoRow<Sqlite> + ExternallyAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Sqlite> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
     <T as HasId>::Id: 'static,
 {
@@ -184,7 +184,7 @@ where
 
 impl<T> InsertMany<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + HasId + IntoRow<Sqlite> + ExternallyAssignedId + Send,
+    T: CrudlyDefault + Schema + HasId + IntoRow<Sqlite> + ExternallyAssignedId + Send,
     for<'q> <T as HasId>::Id: Encode<'q, Sqlite> + Type<Sqlite>,
     <T as HasId>::Id: 'static,
 {
@@ -204,7 +204,7 @@ where
 
 impl<T> SelectAllNoId<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + NoId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+    T: CrudlyDefault + Schema + NoId + for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
 {
     fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
     where
@@ -216,7 +216,7 @@ where
 
 impl<T> InsertNoId<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + NoId + IntoRow<Sqlite> + Send,
+    T: CrudlyDefault + Schema + NoId + IntoRow<Sqlite> + Send,
 {
     fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
     where
@@ -232,7 +232,7 @@ where
 
 impl<T> InsertManyNoId<Sqlite> for T
 where
-    T: CrudlyDefault<Sqlite> + Schema + NoId + IntoRow<Sqlite> + Send,
+    T: CrudlyDefault + Schema + NoId + IntoRow<Sqlite> + Send,
 {
     fn insert_many<E>(
         entities: Vec<Self>,
