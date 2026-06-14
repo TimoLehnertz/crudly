@@ -65,7 +65,9 @@ impl Connection for MockConnection {
         async move { unimplemented!() }
     }
 
-    fn begin(&mut self) -> impl Future<Output = Result<Transaction<'_, Self::Database>, Error>> + Send + '_ {
+    fn begin(
+        &mut self,
+    ) -> impl Future<Output = Result<Transaction<'_, Self::Database>, Error>> + Send + '_ {
         async move { unimplemented!() }
     }
 
@@ -88,22 +90,15 @@ pub struct MockTransactionManager;
 impl TransactionManager for MockTransactionManager {
     type Database = MockDB;
 
-    async fn begin(
-        _conn: &mut MockConnection,
-        _statement: Option<SqlStr>,
-    ) -> Result<(), Error> {
+    async fn begin(_conn: &mut MockConnection, _statement: Option<SqlStr>) -> Result<(), Error> {
         unimplemented!()
     }
 
-    fn commit(
-        _conn: &mut MockConnection,
-    ) -> impl Future<Output = Result<(), Error>> + Send + '_ {
+    fn commit(_conn: &mut MockConnection) -> impl Future<Output = Result<(), Error>> + Send + '_ {
         async move { unimplemented!() }
     }
 
-    fn rollback(
-        _conn: &mut MockConnection,
-    ) -> impl Future<Output = Result<(), Error>> + Send + '_ {
+    fn rollback(_conn: &mut MockConnection) -> impl Future<Output = Result<(), Error>> + Send + '_ {
         async move { unimplemented!() }
     }
 
