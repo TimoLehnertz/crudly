@@ -32,7 +32,7 @@
 //! // Opt into default crudly implementations. This enables the insert,
 //! // select_all, update_by_id, delete_by_id implementations used below.
 //! // Here instead you could use your own generic sql implementations.
-//! impl crudly::CrudlyDefault<sqlx::Sqlite> for User {}
+//! impl crudly::CrudlyDefault for User {}
 //!
 //! const CREATE_USERS_TABLE_SQL: &str =
 //!     "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL);";
