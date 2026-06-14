@@ -90,6 +90,12 @@ impl Schema for User {
     fn table_name() -> &'static str {
         "users"
     }
+
+    fn columns() -> Vec<&'static str> {
+        let mut cols = vec!["id"];
+        cols.extend(<Self as HasColumns>::columns());
+        cols
+    }
 }
 
 impl HasId for User {

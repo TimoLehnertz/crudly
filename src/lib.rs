@@ -1,13 +1,17 @@
 #![forbid(unsafe_code)]
 //! # Crudly
-//! Derivable crud helpers for sqlx. Write your `SELECT`, `INSERT`, `UPDATE`, and `DELETE` queries once and reuse them for all your entities.
-//!
-//! Provides the `#[derive(IntoRow)]` and `#[derive(Schema)]` macros.
+//! Crudly does three things for you:
+//! Firstly it defines traits that describe an entity in the db. Think table name, columns names, id column, etc.
+//! Secondly it offers derive macros that implement these traits for you.
+//! Lastly (and this is fully optional) it offers implementations of Entity::select_by_id(),
+//! entity.insert(), entity.update_by_id() and many more which are generic over any type that implements the traits.
+//! Alternatively you can implement your own sql functions that are generic over the same traits. You might want to do
+//! that if before any select_by_id you want to check with some cache.
 //!
 //! ## Features
 //!
 //! - `derive`: (Default) Enables the `#[derive(Schema)]` and `#[derive(IntoRow)]` macros
-//! - `postgres`: Enables default crud implementations for database
+//! - `postgres`: Enables default crud implementations for postgres
 //! - `mysql`: Enables default crud implementations for MySQL
 //! - `sqlite`: Enables default crud implementations for sqlite
 //! - `all-databases`: Enables default crud implementations all DBs above

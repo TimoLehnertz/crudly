@@ -22,7 +22,7 @@ fn schema_table_inferred_plural_snake() {
     impl CrudlyDefault<Sqlite> for SimpleRecord {}
 
     assert_eq!(<SimpleRecord as Schema>::table_name(), "simple_records");
-    assert_eq!(SimpleRecord::columns(), vec!["name"]);
+    assert_eq!(<SimpleRecord as HasColumns>::columns(), vec!["name"]);
 }
 
 #[test]

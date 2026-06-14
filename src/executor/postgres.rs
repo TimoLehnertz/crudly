@@ -1,13 +1,15 @@
 use crate::executor::reusable_executor::ReusableExecutor;
 use crate::executor::{
     format_placeholders, generic_delete_all, generic_delete_by_id, generic_id_exists,
-    generic_insert_many_with_id, generic_insert_many_without_id, generic_insert_with_id,
-    generic_select_all, generic_select_by_id, generic_select_by_ids, generic_update_by_id,
+    generic_insert, generic_insert_many_with_id, generic_insert_many_without_id,
+    generic_insert_with_id, generic_select_all, generic_select_all_no_id, generic_select_by_id,
+    generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
     CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
-    HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow,
-    RowsAffected, Schema, SelectAll, SelectById, SelectByIds, UpdateById,
+    HasColumns, HasId, IdExists, Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds,
+    InsertNoId, InsertWithoutId, IntoRow, NoId, RowsAffected, Schema, SelectAll, SelectAllNoId,
+    SelectById, SelectByIds, UpdateById,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
 use sqlx::{Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
@@ -31,7 +33,8 @@ where
     S: Schema + IntoRow<Postgres> + HasId + DBAssignedId,
 {
     let table_name = S::table_name();
-    let columns = S::columns()
+    let non_id_columns = <S as HasColumns>::columns();
+    let columns = non_id_columns
         .iter()
         .map(|c| format!("\"{c}\""))
         .collect::<Vec<String>>()
@@ -39,7 +42,7 @@ where
 
     let id_column = S::id_column();
 
-    let placeholders = format_placeholders::<Postgres>(S::columns().len());
+    let placeholders = format_placeholders::<Postgres>(non_id_columns.len());
 
     let sql = format!(
         "INSERT INTO {table_name} ({columns}) VALUES ({placeholders}) RETURNING \"{id_column}\""
@@ -206,5 +209,52 @@ where
         E: ReusableExecutor<Postgres> + Send,
     {
         generic_insert_many_with_id::<Self, Postgres, _>(executor, entities, batch_size).await
+    }
+}
+
+impl<T> SelectAllNoId<Postgres> for T
+where
+    T: CrudlyDefault<Postgres> + Schema + NoId + for<'r> FromRow<'r, PgRow> + Unpin + Send,
+{
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
+    where
+        E: Executor<'c, Database = Postgres>,
+    {
+        async { generic_select_all_no_id(executor).await }
+    }
+}
+
+impl<T> InsertNoId<Postgres> for T
+where
+    T: CrudlyDefault<Postgres> + Schema + NoId + IntoRow<Postgres> + Send,
+{
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
+    where
+        E: Executor<'c, Database = Postgres>,
+    {
+        async move {
+            generic_insert::<Self, Postgres>(executor, self)
+                .await
+                .map(|_| ())
+        }
+    }
+}
+
+impl<T> InsertManyNoId<Postgres> for T
+where
+    T: CrudlyDefault<Postgres> + Schema + NoId + IntoRow<Postgres> + Send,
+{
+    fn insert_many<E>(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<()>> + Send
+    where
+        E: ReusableExecutor<Postgres> + Send,
+    {
+        async move {
+            generic_insert_many_without_id::<Self, Postgres, _>(executor, entities, batch_size)
+                .await
+        }
     }
 }

@@ -1,3 +1,4 @@
+use crate::HasColumns;
 use crate::HasId;
 use crate::IntoRow;
 use crate::Schema;
@@ -34,13 +35,15 @@ pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
 }
 
 /// # Returns
-/// a comma delimited string of the columns for the given type starting with the id column.
-pub(super) fn comma_delimited_columns_with_id<S>() -> String
+/// A comma-delimited, double-quoted string of every column returned by [`Schema::columns`].
+/// For types with an id field this includes the id column (it is listed first by the derive).
+pub(super) fn comma_delimited_columns<S>() -> String
 where
-    S: Schema + HasId,
+    S: Schema,
 {
-    std::iter::once(format!("\"{}\"", S::id_column()))
-        .chain(S::columns().iter().map(|c| format!("\"{c}\"")))
+    <S as Schema>::columns()
+        .into_iter()
+        .map(|c| format!("\"{c}\""))
         .collect::<Vec<String>>()
         .join(",")
 }
@@ -52,11 +55,26 @@ where
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
-    let columns = comma_delimited_columns_with_id::<S>();
+    let columns = comma_delimited_columns::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
 
     let sql = format!("SELECT {columns} FROM {table_name} ORDER BY {id_column} ASC;");
+    query_as(&sql).fetch_all(executor).await
+}
+
+/// Like [`generic_select_all`] but for entities without an id column; selects all columns from
+/// [`Schema::columns`] with no `ORDER BY`.
+pub async fn generic_select_all_no_id<S, DB: Database>(
+    executor: impl Executor<'_, Database = DB>,
+) -> sqlx::Result<Vec<S>>
+where
+    S: Schema + for<'r> FromRow<'r, DB::Row> + Unpin,
+    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+{
+    let columns = comma_delimited_columns::<S>();
+    let table_name = S::table_name();
+    let sql = format!("SELECT {columns} FROM {table_name};");
     query_as(&sql).fetch_all(executor).await
 }
 
@@ -83,7 +101,7 @@ where
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
-    let columns = comma_delimited_columns_with_id::<S>();
+    let columns = comma_delimited_columns::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
 
@@ -108,7 +126,7 @@ where
         return Ok(Vec::new());
     }
 
-    let columns = comma_delimited_columns_with_id::<S>();
+    let columns = comma_delimited_columns::<S>();
     let table_name = S::table_name();
     let id_column = S::id_column();
     let ids_len = ids.len();
@@ -183,8 +201,8 @@ where
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
     let table_name = S::table_name();
-    let columns = comma_delimited_columns_with_id::<S>();
-    let placeholders = format_placeholders::<DB>(S::columns().len() + 1); // +1 for the id column
+    let columns = comma_delimited_columns::<S>();
+    let placeholders = format_placeholders::<DB>(<S as Schema>::columns().len());
 
     let sql = format!("INSERT INTO {table_name} ({columns}) VALUES ({placeholders})");
 
@@ -194,6 +212,33 @@ where
 
     query_with(&sql, arguments).execute(executor).await?;
     Ok(())
+}
+
+pub async fn generic_insert<S, DB>(
+    executor: impl Executor<'_, Database = DB>,
+    entity: S,
+) -> sqlx::Result<DB::QueryResult>
+where
+    DB: Database + FormatPlaceholder,
+    S: Schema + IntoRow<DB>,
+    for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
+{
+    let table_name = S::table_name();
+    let non_id_columns = <S as HasColumns>::columns();
+    let columns = non_id_columns
+        .iter()
+        .map(|c| format!("\"{c}\""))
+        .collect::<Vec<String>>()
+        .join(",");
+
+    let placeholders = format_placeholders::<DB>(non_id_columns.len());
+
+    let sql = format!("INSERT INTO {table_name} ({columns}) VALUES ({placeholders})");
+
+    let mut arguments = DB::Arguments::default();
+    entity.bind_arguments(&mut arguments)?;
+
+    query_with(&sql, arguments).execute(executor).await
 }
 
 pub async fn generic_insert_returning_id<S, DB>(
@@ -206,21 +251,7 @@ where
     S: Schema + IntoRow<DB>,
     for<'e> <DB as Database>::Arguments<'e>: IntoArguments<'e, DB>,
 {
-    let table_name = S::table_name();
-    let columns = S::columns()
-        .into_iter()
-        .map(|c| format!("\"{c}\""))
-        .collect::<Vec<String>>()
-        .join(",");
-
-    let placeholders = format_placeholders::<DB>(S::columns().len());
-
-    let sql = format!("INSERT INTO {table_name} ({columns}) VALUES ({placeholders})");
-
-    let mut arguments = DB::Arguments::default();
-    entity.bind_arguments(&mut arguments)?;
-
-    let result = query_with(&sql, arguments).execute(executor).await?;
+    let result = generic_insert::<S, DB>(executor, entity).await?;
     Ok(result.last_insert_rowid())
 }
 
@@ -244,13 +275,14 @@ where
     }
 
     let table_name = S::table_name();
-    let columns = S::columns()
-        .into_iter()
+    let non_id_columns = <S as HasColumns>::columns();
+    let columns = non_id_columns
+        .iter()
         .map(|c| format!("\"{c}\""))
         .collect::<Vec<String>>()
         .join(",");
 
-    let cols_per_row = S::columns().len();
+    let cols_per_row = non_id_columns.len();
 
     let mut rest = entities;
 
@@ -313,9 +345,9 @@ where
     }
 
     let table_name = S::table_name();
-    let columns = comma_delimited_columns_with_id::<S>();
+    let columns = comma_delimited_columns::<S>();
 
-    let cols_per_row = S::columns().len() + 1; // +1 for the id column
+    let cols_per_row = <S as Schema>::columns().len();
 
     let mut rest = entities;
 
@@ -379,7 +411,7 @@ where
     let mut set_sql = String::new();
 
     // columns are expected not to be empty
-    for (idx, column) in S::columns().iter().enumerate() {
+    for (idx, column) in <S as HasColumns>::columns().iter().enumerate() {
         if idx > 0 {
             set_sql.push(',');
         }
@@ -391,7 +423,7 @@ where
 
     let entity_id = entity.id();
 
-    let id_placeholder = DB::format_placeholder(S::columns().len());
+    let id_placeholder = DB::format_placeholder(<S as HasColumns>::columns().len());
     let sql = format!("UPDATE {table_name} SET {set_sql} WHERE {id_column} = {id_placeholder}");
 
     let mut arguments = DB::Arguments::default();
@@ -453,6 +485,10 @@ pub mod tests {
 
     impl Schema for Dummy {
         fn table_name() -> &'static str {
+            unimplemented!()
+        }
+
+        fn columns() -> Vec<&'static str> {
             unimplemented!()
         }
     }

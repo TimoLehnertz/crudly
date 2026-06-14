@@ -185,11 +185,8 @@ impl CrudlyParsed {
                 let (id_field, id_fa) = (&id_marked[0].0, &id_marked[0].1);
                 let id_ident = id_field.ident.as_ref().unwrap().clone();
                 let id_ty = id_field.ty.clone();
-                let id_column_lit =
-                    into_row::column_name_for_field(id_field, id_fa, rename_all)?;
-                let strategy = attrs
-                    .explicit_id_strategy
-                    .unwrap_or(IdStrategy::DbAssigned);
+                let id_column_lit = into_row::column_name_for_field(id_field, id_fa, rename_all)?;
+                let strategy = attrs.explicit_id_strategy.unwrap_or(IdStrategy::DbAssigned);
                 Some(IdInfo {
                     id_ident,
                     id_ty,
@@ -233,32 +230,55 @@ impl CrudlyParsed {
             .map(|w| quote!(#w))
             .unwrap_or_else(|| quote!());
 
-        let schema_impl = quote! {
-            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #struct_wc {
-                fn table_name() -> &'static str {
-                    #table_lit
-                }
-            }
-        };
+        // Build a version of the impl generics that includes `__CrudlyDb: ::sqlx::Database`
+        // so we can emit blanket impls over all database types.
+        let mut db_generics = generics.clone();
+        db_generics
+            .params
+            .push(syn::parse_quote!(__CrudlyDb: ::sqlx::Database));
 
-        let id_impls = match id_info {
-            None => quote! {},
+        let (schema_columns_fn, id_impls) = match id_info {
+            None => {
+                // No id field: Schema::columns() == HasColumns::columns().
+                // Also emit NoId.
+                let columns_fn = quote! {
+                    fn columns() -> ::std::vec::Vec<&'static str> {
+                        <Self as ::crudly::HasColumns>::columns()
+                    }
+                };
+                let extra = quote! {
+                    impl #struct_impl_gen ::crudly::NoId for #ident #struct_ty_gen #struct_wc {}
+                };
+                (columns_fn, extra)
+            }
             Some(IdInfo {
                 id_ident,
                 id_ty,
                 id_column_lit,
                 strategy,
             }) => {
+                // Id field present: Schema::columns() prepends the id column so callers get
+                // every column in a single call without having to reconstruct id + HasColumns.
+                let columns_fn = quote! {
+                    fn columns() -> ::std::vec::Vec<&'static str> {
+                        let mut cols = ::std::vec![#id_column_lit];
+                        cols.extend(<Self as ::crudly::HasColumns>::columns());
+                        cols
+                    }
+                };
+
                 let marker_impl = match strategy {
                     IdStrategy::DbAssigned => quote! {
-                        impl #struct_impl_gen ::crudly::DBAssignedId for #ident #struct_ty_gen #struct_wc {}
+                        impl #struct_impl_gen ::crudly::DBAssignedId
+                            for #ident #struct_ty_gen #struct_wc {}
                     },
                     IdStrategy::External => quote! {
-                        impl #struct_impl_gen ::crudly::ExternallyAssignedId for #ident #struct_ty_gen #struct_wc {}
+                        impl #struct_impl_gen ::crudly::ExternallyAssignedId
+                            for #ident #struct_ty_gen #struct_wc {}
                     },
                 };
 
-                quote! {
+                let has_id_impl = quote! {
                     impl #struct_impl_gen ::crudly::HasId for #ident #struct_ty_gen #struct_wc {
                         type Id = #id_ty;
 
@@ -272,7 +292,17 @@ impl CrudlyParsed {
                     }
 
                     #marker_impl
+                };
+                (columns_fn, has_id_impl)
+            }
+        };
+
+        let schema_impl = quote! {
+            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #struct_wc {
+                fn table_name() -> &'static str {
+                    #table_lit
                 }
+                #schema_columns_fn
             }
         };
 

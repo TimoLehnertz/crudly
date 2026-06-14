@@ -1,13 +1,15 @@
 use crate::executor::reusable_executor::ReusableExecutor;
 use crate::executor::{
-    generic_delete_all, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
-    generic_insert_many_without_id, generic_insert_returning_id, generic_insert_with_id,
-    generic_select_all, generic_select_by_id, generic_select_by_ids, generic_update_by_id,
+    generic_delete_all, generic_delete_by_id, generic_id_exists, generic_insert,
+    generic_insert_many_with_id, generic_insert_many_without_id, generic_insert_returning_id,
+    generic_insert_with_id, generic_select_all, generic_select_all_no_id, generic_select_by_id,
+    generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
     CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, FormatPlaceholder,
-    HasId, IdExists, Insert, InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow,
-    LastInsertedRowId, RowsAffected, Schema, SelectAll, SelectById, SelectByIds, UpdateById,
+    HasId, IdExists, Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds, InsertNoId,
+    InsertWithoutId, IntoRow, LastInsertedRowId, NoId, RowsAffected, Schema, SelectAll,
+    SelectAllNoId, SelectById, SelectByIds, UpdateById,
 };
 use sqlx::MySql;
 use sqlx::mysql::{MySqlQueryResult, MySqlRow};
@@ -183,5 +185,51 @@ where
         E: ReusableExecutor<MySql> + Send,
     {
         generic_insert_many_with_id::<Self, MySql, _>(executor, entities, batch_size).await
+    }
+}
+
+impl<T> SelectAllNoId<MySql> for T
+where
+    T: CrudlyDefault<MySql> + Schema + NoId + for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
+{
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async { generic_select_all_no_id(executor).await }
+    }
+}
+
+impl<T> InsertNoId<MySql> for T
+where
+    T: CrudlyDefault<MySql> + Schema + NoId + IntoRow<MySql> + Send,
+{
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
+    where
+        E: Executor<'c, Database = MySql>,
+    {
+        async move {
+            generic_insert::<Self, MySql>(executor, self)
+                .await
+                .map(|_| ())
+        }
+    }
+}
+
+impl<T> InsertManyNoId<MySql> for T
+where
+    T: CrudlyDefault<MySql> + Schema + NoId + IntoRow<MySql> + Send,
+{
+    fn insert_many<E>(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<()>> + Send
+    where
+        E: ReusableExecutor<MySql> + Send,
+    {
+        async move {
+            generic_insert_many_without_id::<Self, MySql, _>(executor, entities, batch_size).await
+        }
     }
 }

@@ -2,7 +2,7 @@ use sqlx::{Database, Executor};
 
 use crate::ReusableExecutor;
 
-/// Column list for a row mapping. Split out so callers can use `Self::columns()` unambiguously
+/// Column list for a row mapping. Split out from IntoRow so callers can use `Self::columns()` unambiguously
 /// when [`IntoRow`] is implemented for several [`Database`] types.
 pub trait HasColumns {
     /// The returned columns **MUST NEVER** be empty!
@@ -35,10 +35,15 @@ pub trait HasId {
 }
 
 /// Describes how a rust struct maps to a database table.
-pub trait Schema: HasColumns + Send {
+pub trait Schema: Send {
     /// # Returns
     /// the name of the table for this entity.
     fn table_name() -> &'static str;
+
+    /// # Returns
+    /// All column names for this entity **including** the id column. Unlike
+    /// [HasColumns::columns] which excludes the id column.
+    fn columns() -> Vec<&'static str>;
 }
 
 /// Marker trait that indicates that the id of an entity
@@ -50,6 +55,10 @@ pub trait DBAssignedId: HasId {}
 /// is assigned not by the database but instead inside rust
 /// using something like a uuid.
 pub trait ExternallyAssignedId: HasId {}
+
+/// Marker trait for entities that have no id column.
+/// Emitted automatically by `#[derive(Schema)]` when no field is marked with `#[crudly(id)]`.
+pub trait NoId: Send {}
 
 /// Marker trait that opts an entity into the default `Crudly` and insert trait blanket impls.
 pub trait CrudlyDefault<DB: Database> {}
@@ -144,6 +153,35 @@ pub trait InsertMany<DB: Database>: Sized {
         batch_size: usize,
         executor: E,
     ) -> impl Future<Output = sqlx::Result<()>>
+    where
+        E: ReusableExecutor<DB> + Send;
+}
+
+/// `select_all` for entities with no id column. Blanket impl provided for types that implement
+/// [`NoId`] — no opt-in via [`CrudlyDefault`] required.
+pub trait SelectAllNoId<DB: Database>: Sized {
+    fn select_all<'c, E>(executor: E) -> impl Future<Output = sqlx::Result<Vec<Self>>> + Send
+    where
+        E: Executor<'c, Database = DB>;
+}
+
+/// `insert` (returning `()`) for entities with no id column. Blanket impl provided for types that
+/// implement [`NoId`] — no opt-in via [`CrudlyDefault`] required.
+pub trait InsertNoId<DB: Database>: Sized {
+    fn insert<'c, E>(self, executor: E) -> impl Future<Output = sqlx::Result<()>> + Send
+    where
+        E: Executor<'c, Database = DB>;
+}
+
+/// Batch `insert_many` for entities with no id column. Blanket impl provided for types that
+/// implement [`NoId`] — no opt-in via [`CrudlyDefault`] required.
+pub trait InsertManyNoId<DB: Database>: Sized {
+    /// `batch_size`: max rows per `INSERT`; `0` means one statement for all rows.
+    fn insert_many<E>(
+        entities: Vec<Self>,
+        batch_size: usize,
+        executor: E,
+    ) -> impl Future<Output = sqlx::Result<()>> + Send
     where
         E: ReusableExecutor<DB> + Send;
 }
