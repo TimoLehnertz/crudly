@@ -15,8 +15,9 @@ struct User {
 
 /// Define a trait for your operations.
 ///
-/// Note that this trait is not generic over the database. That is to make this example more readable.
-/// The crudly traits are all generic over the db but the generics of that are much more ugly than committing to a single database.
+/// Note that this trait is not generic over the database. That is to make this
+/// example more readable. The crudly traits are all generic over the db but the
+/// generics of that are much more ugly than committing to a single database.
 trait MyCustomInsert: Sized {
     fn insert<'e>(
         self,
