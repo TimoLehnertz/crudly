@@ -25,12 +25,12 @@ all-databases = ["postgres", "sqlite", "mysql"]
 json = ["sqlx/json", "crudly-macros/json"]
 
 [dependencies]
-sqlx = { version = "0.8.6", default-features = false }
+sqlx = { version = ">=0.8.6, <0.10.0", default-features = false }
 crudly-macros = { path = "crudly-macros", version = "0.5.0", optional = true, default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-sqlx = { version = "0.8.6", default-features = false, features = [
+sqlx = { version = ">=0.8.6, <0.10.0", default-features = false, features = [
     "runtime-tokio",
     "derive",
     "sqlite",
