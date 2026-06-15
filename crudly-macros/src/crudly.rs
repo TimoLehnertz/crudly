@@ -3,6 +3,7 @@ use heck::ToSnakeCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashSet;
+use syn::parse_quote;
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Fields, LitStr};
 
@@ -217,7 +218,11 @@ impl CrudlyParsed {
         })
     }
 
-    fn schema_and_marker_tokens(&self, column_fragments: &[TokenStream]) -> TokenStream {
+    fn schema_and_marker_tokens(
+        &self,
+        column_fragments: &[TokenStream],
+        flatten_preds: &[syn::WherePredicate],
+    ) -> TokenStream {
         let CrudlyParsed {
             ident,
             generics,
@@ -226,6 +231,19 @@ impl CrudlyParsed {
         } = self;
 
         let (struct_impl_gen, struct_ty_gen, struct_wc_opt) = generics.split_for_impl();
+
+        let mut schema_generics = generics.clone();
+        if !flatten_preds.is_empty() {
+            let wc = schema_generics.make_where_clause();
+            for pred in flatten_preds {
+                wc.predicates.push(pred.clone());
+            }
+        }
+        let (_, _, schema_wc_opt) = schema_generics.split_for_impl();
+        let schema_wc = schema_wc_opt
+            .map(|w| quote!(#w))
+            .unwrap_or_else(|| quote!());
+
         let struct_wc = struct_wc_opt
             .map(|w| quote!(#w))
             .unwrap_or_else(|| quote!());
@@ -289,7 +307,7 @@ impl CrudlyParsed {
         };
 
         let schema_impl = quote! {
-            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #struct_wc {
+            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #schema_wc {
                 fn table_name() -> &'static str {
                     #table_lit
                 }
@@ -319,8 +337,13 @@ pub fn expand_derive_schema(input: DeriveInput) -> syn::Result<TokenStream> {
     };
 
     let mut column_fragments = Vec::new();
+    let mut flatten_preds: Vec<syn::WherePredicate> = Vec::new();
     for field in &fields_named.named {
         let fa = into_row::parse_field_attrs(field)?;
+        if fa.flatten {
+            let ty = field.ty.clone();
+            flatten_preds.push(parse_quote!(#ty: ::crudly::IntoRow<::sqlx::Any>));
+        }
         if fa.crudly_id {
             continue;
         }
@@ -330,5 +353,5 @@ pub fn expand_derive_schema(input: DeriveInput) -> syn::Result<TokenStream> {
         )?);
     }
 
-    Ok(parsed.schema_and_marker_tokens(&column_fragments))
+    Ok(parsed.schema_and_marker_tokens(&column_fragments, &flatten_preds))
 }

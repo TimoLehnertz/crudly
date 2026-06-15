@@ -1,5 +1,5 @@
 use common::mock_db::{MockArguments, MockDB};
-use crudly::IntoRow;
+use crudly::{IntoRow, Schema};
 use serde::Serialize;
 use sqlx::types::Json;
 
@@ -65,7 +65,7 @@ fn flatten_inlines_inner_columns_and_binds() {
         b: String,
     }
 
-    #[derive(IntoRow)]
+    #[derive(IntoRow, Schema)]
     struct OuterFlat {
         a: String,
         #[sqlx(flatten)]
@@ -77,6 +77,7 @@ fn flatten_inlines_inner_columns_and_binds() {
         <OuterFlat as IntoRow<MockDB>>::columns(),
         vec!["a", "b", "c"]
     );
+    assert_eq!(<OuterFlat as Schema>::columns(), vec!["a", "b", "c"]);
     let mut args = MockArguments::default();
 
     bind_mock(

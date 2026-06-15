@@ -63,7 +63,7 @@ pub(crate) struct ContainerAttrs {
 pub(crate) struct FieldAttrs {
     rename: Option<String>,
     field_default: bool,
-    flatten: bool,
+    pub(crate) flatten: bool,
     skip: bool,
     /// Primary key field for `#[derive(Schema)]`; omitted from `IntoRow::columns` / bind like `skip`.
     pub(crate) crudly_id: bool,
@@ -558,7 +558,7 @@ pub(crate) fn schema_columns_tokens_for_field(
     if attrs.flatten {
         let ty = &field.ty;
         return Ok(quote! {
-            out.extend(<#ty as ::crudly::Schema>::columns());
+            out.extend(<#ty as ::crudly::IntoRow<::sqlx::Any>>::columns());
         });
     }
     Ok(quote! {
