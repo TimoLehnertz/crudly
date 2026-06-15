@@ -1,5 +1,5 @@
 use common::mock_db::{MockArguments, MockDB};
-use crudly::{HasColumns, IntoRow};
+use crudly::IntoRow;
 use serde::Serialize;
 use sqlx::types::Json;
 
@@ -17,7 +17,10 @@ fn rename_all_camel_columns_and_bind_count() {
         user_name: String,
     }
 
-    assert_eq!(RenameAllCamel::columns(), vec!["userName"]);
+    assert_eq!(
+        <RenameAllCamel as IntoRow<MockDB>>::columns(),
+        vec!["userName"]
+    );
 }
 
 #[test]
@@ -27,7 +30,10 @@ fn field_rename_maps_column() {
         #[crudly(rename = "street_address")]
         line1: String,
     }
-    assert_eq!(RenamedField::columns(), vec!["street_address"]);
+    assert_eq!(
+        <RenamedField as IntoRow<MockDB>>::columns(),
+        vec!["street_address"]
+    );
 }
 
 #[test]
@@ -38,7 +44,7 @@ fn skip_omits_column_and_bind() {
         #[sqlx(skip)]
         _skip_me: String,
     }
-    assert_eq!(Skipped::columns(), vec!["keep"]);
+    assert_eq!(<Skipped as IntoRow<MockDB>>::columns(), vec!["keep"]);
 
     let mut args = MockArguments::default();
     bind_mock(
@@ -67,7 +73,10 @@ fn flatten_inlines_inner_columns_and_binds() {
         c: String,
     }
 
-    assert_eq!(OuterFlat::columns(), vec!["a", "b", "c"]);
+    assert_eq!(
+        <OuterFlat as IntoRow<MockDB>>::columns(),
+        vec!["a", "b", "c"]
+    );
     let mut args = MockArguments::default();
 
     bind_mock(
@@ -115,7 +124,7 @@ fn container_default_attribute_allowed() {
     struct ContainerDefault {
         x: String,
     }
-    assert_eq!(ContainerDefault::columns(), vec!["x"]);
+    assert_eq!(<ContainerDefault as IntoRow<MockDB>>::columns(), vec!["x"]);
     let mut args = MockArguments::default();
     bind_mock(ContainerDefault { x: "ok".into() }, &mut args).unwrap();
     assert_eq!(args.values, vec![Some("ok".into())]);
@@ -130,7 +139,7 @@ fn sqlx_rename_all_only() {
         name: String,
     }
 
-    assert_eq!(SplitAttrs::columns(), vec!["NAME"]);
+    assert_eq!(<SplitAttrs as IntoRow<MockDB>>::columns(), vec!["NAME"]);
 }
 
 #[derive(Serialize, Clone)]
@@ -147,7 +156,7 @@ fn json_field_binds() {
         json: JsonObject,
     }
 
-    assert_eq!(JsonField::columns(), vec!["json"]);
+    assert_eq!(<JsonField as IntoRow<MockDB>>::columns(), vec!["json"]);
     let json = JsonObject {
         name: "test".into(),
     };
@@ -166,7 +175,7 @@ struct JsonNullable {
 
 #[test]
 fn json_nullable_none() {
-    assert_eq!(JsonNullable::columns(), vec!["json"]);
+    assert_eq!(<JsonNullable as IntoRow<MockDB>>::columns(), vec!["json"]);
     let mut args = MockArguments::default();
     bind_mock(JsonNullable { json: None }, &mut args).unwrap();
     assert_eq!(args.values, vec![None]);
@@ -198,7 +207,10 @@ fn field_default_attribute_allowed() {
         flag: String,
     }
 
-    assert_eq!(FieldDefaultAttr::columns(), vec!["flag"]);
+    assert_eq!(
+        <FieldDefaultAttr as IntoRow<MockDB>>::columns(),
+        vec!["flag"]
+    );
     let mut args = MockArguments::default();
     bind_mock(FieldDefaultAttr { flag: "set".into() }, &mut args).unwrap();
     assert_eq!(args.values, vec![Some("set".into())]);

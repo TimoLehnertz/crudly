@@ -1,23 +1,19 @@
+use crate::sql::reusable_executor::ReusableExecutor;
 use sqlx::{Database, Executor};
 
-use crate::sql::reusable_executor::ReusableExecutor;
-
-/// Column list for a row mapping. Split out from IntoRow so callers can use `Self::columns()` unambiguously
-/// when [`IntoRow`] is implemented for several [`Database`] types.
-pub trait HasColumns {
+/// Tries to be the counterpart to [sqlx::FromRow](https://docs.rs/sqlx/latest/sqlx/trait.FromRow.html).
+/// Binds non-id values onto an SQLx [`sqlx::Arguments`] buffer for [`Database`] `DB`
+/// (`DB::Arguments`).
+pub trait IntoRow<DB: Database> {
     /// The returned columns **MUST NEVER** be empty!
     /// That is because the sql query builders rely on the fact that there will be at least one column.
+    /// implementing this trait for a type promises that invariant.
     ///
     /// # Returns
     /// the column names for this entity (does **NOT** include the id column).
     fn columns() -> Vec<&'static str>;
-}
 
-/// Tries to be the counterpart to [sqlx::FromRow](https://docs.rs/sqlx/latest/sqlx/trait.FromRow.html).
-/// Binds non-id values onto an SQLx [`sqlx::Arguments`] buffer for [`Database`] `DB`
-/// (`DB::Arguments<'q>`).
-pub trait IntoRow<DB: Database>: HasColumns {
-    /// Binds values in the same order as [`HasColumns::columns`].
+    /// Binds values in the same order as [`Self::columns`].
     /// Does **not** bind the id.
     ///
     /// ## Ownership
@@ -50,7 +46,7 @@ pub trait Schema: Send {
 
     /// # Returns
     /// All column names for this entity **including** the id column. Unlike
-    /// [HasColumns::columns] which excludes the id column.
+    /// [`IntoRow::columns`] which excludes the id column.
     fn columns() -> Vec<&'static str>;
 }
 

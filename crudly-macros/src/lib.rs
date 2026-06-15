@@ -8,7 +8,8 @@ mod into_row;
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
-/// Derives [`HasColumns`](https://docs.rs/crudly/0.2.0/crudly/trait.HasColumns.html) and [`IntoRow`](https://docs.rs/crudly/0.2.0/crudly/trait.IntoRow.html) for a struct.
+/// Derives [`IntoRow`](https://docs.rs/crudly/latest/crudly/trait.IntoRow.html) for a struct,
+/// including [`IntoRow::columns`](https://docs.rs/crudly/latest/crudly/trait.IntoRow.html#tymethod.columns).
 ///
 /// Emits a single `impl<__CrudlyDb: Database> IntoRow<__CrudlyDb>` that uses [`Arguments::add`](https://docs.rs/sqlx/0.8.6/sqlx/trait.Arguments.html#tymethod.add),
 /// so the struct is usable with any SQLx [`Database`](https://docs.rs/sqlx/0.8.6/sqlx/trait.Database.html) for which every serialized
@@ -29,9 +30,7 @@ pub fn derive_into_row(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// **Note:** Schema requires the `HasColumns` trait which can be derived by using the `IntoRow` derive.
-///
-/// Always derives [`Schema`](https://docs.rs/crudly/latest/crudly/trait.Schema.html) (just `table_name()`).
+/// Derives [`Schema`](https://docs.rs/crudly/latest/crudly/trait.Schema.html) (`table_name()` and `columns()`).
 ///
 /// If exactly one field is marked with `#[crudly(id)]`, also derives
 /// [`HasId`](https://docs.rs/crudly/latest/crudly/trait.HasId.html) and the appropriate id marker trait

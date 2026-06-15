@@ -65,7 +65,7 @@ pub(crate) struct FieldAttrs {
     field_default: bool,
     flatten: bool,
     skip: bool,
-    /// Primary key field for `#[derive(Schema)]`; omitted from `HasColumns` / bind like `skip`.
+    /// Primary key field for `#[derive(Schema)]`; omitted from `IntoRow::columns` / bind like `skip`.
     pub(crate) crudly_id: bool,
     try_from: Option<Type>,
     try_into: Option<Type>,
@@ -528,7 +528,7 @@ fn field_binding_expr(field: &Field, attrs: &FieldAttrs) -> syn::Result<TokenStr
     })
 }
 
-fn columns_tokens_for_field(
+fn into_row_columns_tokens_for_field(
     field: &Field,
     attrs: &FieldAttrs,
     sql_name: &str,
@@ -539,7 +539,26 @@ fn columns_tokens_for_field(
     if attrs.flatten {
         let ty = &field.ty;
         return Ok(quote! {
-            out.extend(<#ty as ::crudly::HasColumns>::columns());
+            out.extend(<#ty as ::crudly::IntoRow<__CrudlyDb>>::columns());
+        });
+    }
+    Ok(quote! {
+        out.push(#sql_name);
+    })
+}
+
+pub(crate) fn schema_columns_tokens_for_field(
+    field: &Field,
+    attrs: &FieldAttrs,
+    sql_name: &str,
+) -> syn::Result<TokenStream> {
+    if attrs.skip {
+        return Ok(quote! {});
+    }
+    if attrs.flatten {
+        let ty = &field.ty;
+        return Ok(quote! {
+            out.extend(<#ty as ::crudly::Schema>::columns());
         });
     }
     Ok(quote! {
@@ -582,7 +601,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
             saw_non_skip = true;
         }
         let sql_name = column_name_for_field(field, &fa, rename_all)?;
-        column_fragments.push(columns_tokens_for_field(field, &fa, &sql_name)?);
+        column_fragments.push(into_row_columns_tokens_for_field(field, &fa, &sql_name)?);
         parsed.push((field, fa));
     }
 
@@ -594,18 +613,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let ident = &input.ident;
-    let (hc_impl_generics, hc_ty_generics, hc_where_clause) = input.generics.split_for_impl();
-
-    let has_columns_impl = quote! {
-        impl #hc_impl_generics ::crudly::HasColumns for #ident #hc_ty_generics #hc_where_clause {
-            fn columns() -> ::std::vec::Vec<&'static str> {
-                let mut out = ::std::vec::Vec::new();
-                #(#column_fragments)*
-                debug_assert!(!out.is_empty(), "HasColumns::columns must not be empty");
-                out
-            }
-        }
-    };
+    let (_, hc_ty_generics, _) = input.generics.split_for_impl();
 
     let mut bind_fragments = Vec::new();
     let mut preds: Vec<syn::WherePredicate> = Vec::new();
@@ -651,6 +659,13 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         impl #impl_generics ::crudly::IntoRow<__CrudlyDb> for #ident #hc_ty_generics
         #where_clause
         {
+            fn columns() -> ::std::vec::Vec<&'static str> {
+                let mut out = ::std::vec::Vec::new();
+                #(#column_fragments)*
+                debug_assert!(!out.is_empty(), "IntoRow::columns must not be empty");
+                out
+            }
+
             fn bind_arguments(
                 self,
                 arguments: &mut <__CrudlyDb as ::sqlx::Database>::Arguments,
@@ -662,8 +677,5 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
-    Ok(quote! {
-        #has_columns_impl
-        #into_row_impl
-    })
+    Ok(into_row_impl)
 }

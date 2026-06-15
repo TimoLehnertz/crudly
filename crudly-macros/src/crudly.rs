@@ -217,7 +217,7 @@ impl CrudlyParsed {
         })
     }
 
-    fn schema_and_marker_tokens(&self) -> TokenStream {
+    fn schema_and_marker_tokens(&self, column_fragments: &[TokenStream]) -> TokenStream {
         let CrudlyParsed {
             ident,
             generics,
@@ -230,20 +230,13 @@ impl CrudlyParsed {
             .map(|w| quote!(#w))
             .unwrap_or_else(|| quote!());
 
-        // Build a version of the impl generics that includes `__CrudlyDb: ::sqlx::Database`
-        // so we can emit blanket impls over all database types.
-        let mut db_generics = generics.clone();
-        db_generics
-            .params
-            .push(syn::parse_quote!(__CrudlyDb: ::sqlx::Database));
-
         let (schema_columns_fn, id_impls) = match id_info {
             None => {
-                // No id field: Schema::columns() == HasColumns::columns().
-                // Also emit NoId.
                 let columns_fn = quote! {
                     fn columns() -> ::std::vec::Vec<&'static str> {
-                        <Self as ::crudly::HasColumns>::columns()
+                        let mut out = ::std::vec::Vec::new();
+                        #(#column_fragments)*
+                        out
                     }
                 };
                 let extra = quote! {
@@ -257,13 +250,11 @@ impl CrudlyParsed {
                 id_column_lit,
                 strategy,
             }) => {
-                // Id field present: Schema::columns() prepends the id column so callers get
-                // every column in a single call without having to reconstruct id + HasColumns.
                 let columns_fn = quote! {
                     fn columns() -> ::std::vec::Vec<&'static str> {
-                        let mut cols = ::std::vec![#id_column_lit];
-                        cols.extend(<Self as ::crudly::HasColumns>::columns());
-                        cols
+                        let mut out = ::std::vec![#id_column_lit];
+                        #(#column_fragments)*
+                        out
                     }
                 };
 
@@ -314,6 +305,30 @@ impl CrudlyParsed {
 }
 
 pub fn expand_derive_schema(input: DeriveInput) -> syn::Result<TokenStream> {
+    let container = into_row::parse_container_attrs(&input)?;
+    let rename_all = container.rename_all;
     let parsed = CrudlyParsed::parse(&input, "Schema")?;
-    Ok(parsed.schema_and_marker_tokens())
+
+    let data_struct = match &input.data {
+        Data::Struct(ds) => ds,
+        _ => unreachable!("validated in CrudlyParsed::parse"),
+    };
+    let fields_named = match &data_struct.fields {
+        Fields::Named(n) => n,
+        _ => unreachable!("validated in CrudlyParsed::parse"),
+    };
+
+    let mut column_fragments = Vec::new();
+    for field in &fields_named.named {
+        let fa = into_row::parse_field_attrs(field)?;
+        if fa.crudly_id {
+            continue;
+        }
+        let sql_name = into_row::column_name_for_field(field, &fa, rename_all)?;
+        column_fragments.push(into_row::schema_columns_tokens_for_field(
+            field, &fa, &sql_name,
+        )?);
+    }
+
+    Ok(parsed.schema_and_marker_tokens(&column_fragments))
 }

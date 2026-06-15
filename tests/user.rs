@@ -5,9 +5,9 @@ use crudly::sql::{
     generic_select_all, generic_select_by_id, generic_select_by_ids, generic_update_by_id,
 };
 use crudly::{
-    DBAssignedId, DeleteById, ExternallyAssignedId, HasColumns, HasId, IdExists, Insert,
-    InsertMany, InsertManyWithoutIds, InsertWithoutId, IntoRow, Schema, SelectAll, SelectById,
-    SelectByIds, UpdateById,
+    DBAssignedId, DeleteById, ExternallyAssignedId, HasId, IdExists, Insert, InsertMany,
+    InsertManyWithoutIds, InsertWithoutId, IntoRow, Schema, SelectAll, SelectById, SelectByIds,
+    UpdateById,
 };
 use serde::Serialize;
 use sqlx::sqlite::{Sqlite, SqlitePool};
@@ -40,10 +40,16 @@ impl IntoRow<Sqlite> for User
 where
     for<'q> String: Encode<'q, Sqlite> + Type<Sqlite>,
 {
-    fn bind_arguments<'q>(
-        self,
-        arguments: &mut <Sqlite as Database>::Arguments,
-    ) -> sqlx::Result<()> {
+    fn columns() -> Vec<&'static str> {
+        let mut columns = Vec::new();
+        columns.push("name");
+        columns.extend(<Address as IntoRow<Sqlite>>::columns());
+        columns.push("email");
+        columns.push("json");
+        columns
+    }
+
+    fn bind_arguments(self, arguments: &mut <Sqlite as Database>::Arguments) -> sqlx::Result<()> {
         arguments.add(self.name).map_err(sqlx::Error::Encode)?;
         self.address.bind_arguments(arguments)?;
         arguments.add(self.email).map_err(sqlx::Error::Encode)?;
@@ -58,30 +64,14 @@ impl IntoRow<Sqlite> for Address
 where
     for<'q> String: Encode<'q, Sqlite> + Type<Sqlite>,
 {
+    fn columns() -> Vec<&'static str> {
+        vec!["street", "city"]
+    }
+
     fn bind_arguments(self, arguments: &mut <Sqlite as Database>::Arguments) -> sqlx::Result<()> {
         arguments.add(self.street).map_err(sqlx::Error::Encode)?;
         arguments.add(self.city).map_err(sqlx::Error::Encode)?;
         Ok(())
-    }
-}
-
-impl HasColumns for User {
-    fn columns() -> Vec<&'static str> {
-        let mut columns = Vec::new();
-        columns.push("name");
-        columns.extend(Address::columns());
-        columns.push("email");
-        columns.push("json");
-        columns
-    }
-}
-
-impl HasColumns for Address {
-    fn columns() -> Vec<&'static str> {
-        let mut columns = Vec::new();
-        columns.push("street");
-        columns.push("city");
-        columns
     }
 }
 
@@ -92,7 +82,7 @@ impl Schema for User {
 
     fn columns() -> Vec<&'static str> {
         let mut cols = vec!["id"];
-        cols.extend(<Self as HasColumns>::columns());
+        cols.extend(<Self as IntoRow<Sqlite>>::columns());
         cols
     }
 }

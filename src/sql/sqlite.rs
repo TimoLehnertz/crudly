@@ -224,7 +224,7 @@ where
         E: Executor<'c, Database = Sqlite>,
     {
         async move {
-            crate::sql::generic_insert::<Self, Sqlite>(executor, self)
+            crate::sql::generic_insert_without_id::<Self, Sqlite>(executor, self)
                 .await
                 .map(|_| ())
         }
