@@ -8,8 +8,7 @@ mod into_row;
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
-/// Derives [`IntoRow`](https://docs.rs/crudly/latest/crudly/trait.IntoRow.html) for a struct,
-/// including [`IntoRow::columns`](https://docs.rs/crudly/latest/crudly/trait.IntoRow.html#tymethod.columns).
+/// Derives [`HasColumns`](https://docs.rs/crudly/latest/crudly/trait.HasColumns.html) and [`IntoRow`](https://docs.rs/crudly/latest/crudly/trait.IntoRow.html) for a struct.
 ///
 /// Emits a single `impl<__CrudlyDb: Database> IntoRow<__CrudlyDb>` that uses [`Arguments::add`](https://docs.rs/sqlx/0.8.6/sqlx/trait.Arguments.html#tymethod.add),
 /// so the struct is usable with any SQLx [`Database`](https://docs.rs/sqlx/0.8.6/sqlx/trait.Database.html) for which every serialized

@@ -25,7 +25,7 @@ all-databases = ["postgres", "sqlite", "mysql"]
 json = ["sqlx/json", "crudly-macros/json"]
 
 [dependencies]
-sqlx = { version = "0.9", default-features = false, features = ["any"] }
+sqlx = { version = "0.9", default-features = false }
 crudly-macros = { path = "crudly-macros", version = "0.5.0", optional = true, default-features = false }
 
 [dev-dependencies]

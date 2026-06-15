@@ -84,16 +84,15 @@
 //! ## The `IntoRow` trait
 //!
 //! IntoRow tries to be the counterpart to [sqlx::FromRow](https://docs.rs/sqlx/latest/sqlx/trait.FromRow.html).
-//! It exposes the following two functions:
-//! - `columns`: Returns the column names for the struct (respecting all sqlx attributes)
-//! - `bind_arguments`: Binds the values of the struct to an SQLx [`sqlx::Arguments`] buffer
+//! Non-id column names live on [`HasColumns`]; [`IntoRow`] adds `bind_arguments` for a specific
+//! [`sqlx::Database`].
 //!
 //! **Deriving IntoRow**
 //!
 //! IntoRow understands all attributes that `sqlx::FromRow` supports as of sqlx 0.9.0. So The code below will just work:
 //! ```
 //! # #[allow(unused_variables)]
-//! # use crudly::IntoRow;
+//! # use crudly::{HasColumns, IntoRow};
 //! # use sqlx::Sqlite;
 //! #[derive(crudly::IntoRow)]
 //! #[sqlx(rename_all = "camelCase")]
@@ -105,7 +104,7 @@
 //!     skip_me: String,
 //! }
 //!
-//! assert_eq!(<User as IntoRow<Sqlite>>::columns(), vec!["userId", "userName"]);
+//! assert_eq!(User::columns(), vec!["userId", "userName"]);
 //! ```
 //! In case you only want to derive [IntoRow] and not sqlx::FromRow all the attributes also have a #[crudly(rename = "name")] format.
 //!

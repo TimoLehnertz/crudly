@@ -3,7 +3,8 @@
 
 use common::sqlite;
 use crudly::{
-    CrudlyDefault, HasId, Insert, InsertManyWithoutIds, InsertWithoutId, IntoRow, Schema, SelectAll,
+    CrudlyDefault, HasColumns, HasId, Insert, InsertManyWithoutIds, InsertWithoutId, IntoRow,
+    Schema, SelectAll,
 };
 use sqlx::FromRow;
 
@@ -20,10 +21,7 @@ fn schema_table_inferred_plural_snake() {
     impl CrudlyDefault for SimpleRecord {}
 
     assert_eq!(<SimpleRecord as Schema>::table_name(), "simple_records");
-    assert_eq!(
-        <SimpleRecord as IntoRow<sqlx::Sqlite>>::columns(),
-        vec!["name"]
-    );
+    assert_eq!(<SimpleRecord as HasColumns>::columns(), vec!["name"]);
 }
 
 #[test]

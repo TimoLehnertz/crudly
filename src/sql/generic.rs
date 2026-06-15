@@ -1,3 +1,4 @@
+use crate::HasColumns;
 use crate::HasId;
 use crate::IntoRow;
 use crate::Schema;
@@ -229,7 +230,7 @@ where
     <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
-    let non_id_columns = <S as IntoRow<DB>>::columns();
+    let non_id_columns = <S as HasColumns>::columns();
     let columns = non_id_columns
         .iter()
         .map(|c| format!("\"{c}\""))
@@ -282,7 +283,7 @@ where
     }
 
     let table_name = S::table_name();
-    let non_id_columns = <S as IntoRow<DB>>::columns();
+    let non_id_columns = <S as HasColumns>::columns();
     let columns = non_id_columns
         .iter()
         .map(|c| format!("\"{c}\""))
@@ -422,7 +423,7 @@ where
     let mut set_sql = String::new();
 
     // columns are expected not to be empty
-    for (idx, column) in <S as IntoRow<DB>>::columns().iter().enumerate() {
+    for (idx, column) in <S as HasColumns>::columns().iter().enumerate() {
         if idx > 0 {
             set_sql.push(',');
         }
@@ -434,7 +435,7 @@ where
 
     let entity_id = entity.id();
 
-    let id_placeholder = DB::format_placeholder(<S as IntoRow<DB>>::columns().len());
+    let id_placeholder = DB::format_placeholder(<S as HasColumns>::columns().len());
     let sql = format!("UPDATE {table_name} SET {set_sql} WHERE {id_column} = {id_placeholder}");
 
     let mut arguments = DB::Arguments::default();
@@ -476,16 +477,18 @@ where
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{HasId, IntoRow, Schema};
+    use crate::{HasColumns, HasId, IntoRow, Schema};
     use sqlx::{Sqlite, SqliteConnection, SqlitePool};
 
     pub struct Dummy;
 
-    impl IntoRow<Sqlite> for Dummy {
+    impl HasColumns for Dummy {
         fn columns() -> Vec<&'static str> {
             unimplemented!()
         }
+    }
 
+    impl IntoRow<Sqlite> for Dummy {
         fn bind_arguments(
             self,
             _arguments: &mut <Sqlite as Database>::Arguments,

@@ -6,9 +6,10 @@ use crate::sql::{
     generic_select_by_ids, generic_update_by_id,
 };
 use crate::{
-    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, HasId, IdExists,
-    Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds, InsertNoId, InsertWithoutId, IntoRow,
-    NoId, Schema, SelectAll, SelectAllNoId, SelectById, SelectByIds, UpdateById,
+    CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, HasColumns, HasId,
+    IdExists, Insert, InsertMany, InsertManyNoId, InsertManyWithoutIds, InsertNoId,
+    InsertWithoutId, IntoRow, NoId, Schema, SelectAll, SelectAllNoId, SelectById, SelectByIds,
+    UpdateById,
 };
 use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
 use sqlx::{AssertSqlSafe, Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
@@ -32,7 +33,7 @@ where
     S: Schema + IntoRow<Postgres> + HasId + DBAssignedId,
 {
     let table_name = S::table_name();
-    let non_id_columns = <S as IntoRow<Postgres>>::columns();
+    let non_id_columns = <S as HasColumns>::columns();
     let columns = non_id_columns
         .iter()
         .map(|c| format!("\"{c}\""))

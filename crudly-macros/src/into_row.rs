@@ -65,7 +65,7 @@ pub(crate) struct FieldAttrs {
     field_default: bool,
     pub(crate) flatten: bool,
     skip: bool,
-    /// Primary key field for `#[derive(Schema)]`; omitted from `IntoRow::columns` / bind like `skip`.
+    /// Primary key field for `#[derive(Schema)]`; omitted from [`HasColumns`] / bind like `skip`.
     pub(crate) crudly_id: bool,
     try_from: Option<Type>,
     try_into: Option<Type>,
@@ -539,7 +539,7 @@ fn into_row_columns_tokens_for_field(
     if attrs.flatten {
         let ty = &field.ty;
         return Ok(quote! {
-            out.extend(<#ty as ::crudly::IntoRow<__CrudlyDb>>::columns());
+            out.extend(<#ty as ::crudly::HasColumns>::columns());
         });
     }
     Ok(quote! {
@@ -558,7 +558,7 @@ pub(crate) fn schema_columns_tokens_for_field(
     if attrs.flatten {
         let ty = &field.ty;
         return Ok(quote! {
-            out.extend(<#ty as ::crudly::IntoRow<::sqlx::Any>>::columns());
+            out.extend(<#ty as ::crudly::HasColumns>::columns());
         });
     }
     Ok(quote! {
@@ -613,7 +613,18 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let ident = &input.ident;
-    let (_, hc_ty_generics, _) = input.generics.split_for_impl();
+    let (hc_impl_generics, hc_ty_generics, hc_where_clause) = input.generics.split_for_impl();
+
+    let has_columns_impl = quote! {
+        impl #hc_impl_generics ::crudly::HasColumns for #ident #hc_ty_generics #hc_where_clause {
+            fn columns() -> ::std::vec::Vec<&'static str> {
+                let mut out = ::std::vec::Vec::new();
+                #(#column_fragments)*
+                debug_assert!(!out.is_empty(), "HasColumns::columns must not be empty");
+                out
+            }
+        }
+    };
 
     let mut bind_fragments = Vec::new();
     let mut preds: Vec<syn::WherePredicate> = Vec::new();
@@ -628,6 +639,11 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         }
         if fa.flatten {
             let ty = &field.ty;
+            push_pred_unique(
+                &mut preds,
+                &mut pred_seen,
+                parse_quote!(#ty: ::crudly::HasColumns),
+            );
             push_pred_unique(
                 &mut preds,
                 &mut pred_seen,
@@ -659,13 +675,6 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         impl #impl_generics ::crudly::IntoRow<__CrudlyDb> for #ident #hc_ty_generics
         #where_clause
         {
-            fn columns() -> ::std::vec::Vec<&'static str> {
-                let mut out = ::std::vec::Vec::new();
-                #(#column_fragments)*
-                debug_assert!(!out.is_empty(), "IntoRow::columns must not be empty");
-                out
-            }
-
             fn bind_arguments(
                 self,
                 arguments: &mut <__CrudlyDb as ::sqlx::Database>::Arguments,
@@ -677,5 +686,8 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
         }
     };
 
-    Ok(into_row_impl)
+    Ok(quote! {
+        #has_columns_impl
+        #into_row_impl
+    })
 }
