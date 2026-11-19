@@ -18,7 +18,9 @@ struct Kite {
 }
 
 /// Has no row mapping and is not even `Send`.
-struct Pebble(std::rc::Rc<()>);
+struct Pebble {
+    weight: std::rc::Rc<i64>,
+}
 
 #[test]
 fn the_traits_are_implemented_when_the_type_argument_has_columns() {
@@ -34,10 +36,12 @@ fn the_traits_are_implemented_when_the_type_argument_has_columns() {
 fn a_type_argument_without_columns_leaves_a_plain_struct() {
     let shelf = Shelf {
         id: 4,
-        item: Pebble(Default::default()),
+        item: Pebble {
+            weight: std::rc::Rc::new(9),
+        },
     };
     assert_eq!(HasId::id(&shelf), 4);
-    let Pebble(_) = shelf.item;
+    assert_eq!(*shelf.item.weight, 9);
 }
 
 #[test]
