@@ -5,12 +5,16 @@ use sqlx::{Database, Executor};
 /// depend on the database driver, and [`Schema`] flatten (among other call sites) must be able to
 /// read them without naming a [`Database`] type.
 pub trait HasColumns {
-    /// The returned columns **MUST NEVER** be empty!
-    /// That is because the sql query builders rely on the fact that there will be at least one column.
-    ///
     /// # Returns
-    /// the column names for this entity (does **NOT** include the id column).
+    /// the column names for this entity (does **NOT** include the id column). May be empty.
     fn columns() -> Vec<&'static str>;
+}
+
+/// No columns: a flattened field of type `()` adds nothing to a row.
+impl HasColumns for () {
+    fn columns() -> Vec<&'static str> {
+        Vec::new()
+    }
 }
 
 /// Tries to be the counterpart to [sqlx::FromRow](https://docs.rs/sqlx/latest/sqlx/trait.FromRow.html).
@@ -28,6 +32,12 @@ pub trait IntoRow<DB: Database>: HasColumns {
     /// So forcing all entities to give up ownership here is a tradeoff. It means that no data is cloned in the driver.
     /// However this way users might need to clone their entities when they still need them after binding.
     fn bind_arguments(self, arguments: &mut DB::Arguments) -> sqlx::Result<()>;
+}
+
+impl<DB: Database> IntoRow<DB> for () {
+    fn bind_arguments(self, _: &mut DB::Arguments) -> sqlx::Result<()> {
+        Ok(())
+    }
 }
 
 pub trait HasId {

@@ -1,5 +1,5 @@
 use crate::sql::{
-    FormatPlaceholder, LastInsertedRowId, RowsAffected, reusable_executor::ReusableExecutor,
+    LastInsertedRowId, RowsAffected, SqlDialect, reusable_executor::ReusableExecutor,
 };
 use crate::sql::{
     generic_delete_all, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
@@ -16,7 +16,7 @@ use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
 use sqlx::{Encode, Executor, FromRow, Sqlite, Type};
 use std::future::Future;
 
-impl FormatPlaceholder for Sqlite {
+impl SqlDialect for Sqlite {
     fn format_placeholder(_idx: usize) -> String {
         "?".to_string()
     }

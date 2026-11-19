@@ -633,7 +633,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
 
     for field in &fields_named.named {
         let fa = parse_field_attrs(field)?;
-        if fa.flatten || (!fa.skip && !fa.crudly_id) {
+        if fa.flatten || !fa.skip {
             saw_non_skip = true;
         }
         let sql_name = column_name_for_field(field, &fa, rename_all)?;
@@ -644,7 +644,7 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
     if !saw_non_skip {
         return Err(syn::Error::new(
             input.span(),
-            "`IntoRow` requires at least one non-id field that participates in row columns (not `skip` or `#[crudly(id)]`)",
+            "`IntoRow` requires at least one field that is not `skip`",
         ));
     }
 
@@ -662,7 +662,6 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
             fn columns() -> ::std::vec::Vec<&'static str> {
                 let mut out = ::std::vec::Vec::new();
                 #(#column_fragments)*
-                debug_assert!(!out.is_empty(), "HasColumns::columns must not be empty");
                 out
             }
         }
