@@ -126,6 +126,15 @@ struct CrudlyParsed {
     id_info: Option<IdInfo>,
 }
 
+/// Where-clause tokens (possibly empty) of `generics`.
+fn where_tokens(generics: &syn::Generics) -> TokenStream {
+    generics
+        .where_clause
+        .as_ref()
+        .map(|w| quote!(#w))
+        .unwrap_or_default()
+}
+
 impl CrudlyParsed {
     fn parse(input: &DeriveInput, derive_name: &str) -> syn::Result<Self> {
         let attrs = CrudlyAttrs::parse(input)?;
@@ -217,7 +226,11 @@ impl CrudlyParsed {
         })
     }
 
-    fn schema_and_marker_tokens(&self, column_fragments: &[TokenStream]) -> TokenStream {
+    fn schema_and_marker_tokens(
+        &self,
+        column_fragments: &[TokenStream],
+        column_preds: Vec<syn::WherePredicate>,
+    ) -> TokenStream {
         let CrudlyParsed {
             ident,
             generics,
@@ -225,10 +238,38 @@ impl CrudlyParsed {
             id_info,
         } = self;
 
-        let (struct_impl_gen, struct_ty_gen, struct_wc_opt) = generics.split_for_impl();
-        let struct_wc = struct_wc_opt
-            .map(|w| quote!(#w))
-            .unwrap_or_else(|| quote!());
+        let (struct_impl_gen, struct_ty_gen, _) = generics.split_for_impl();
+
+        // The generated impls carry the bounds they need on top of the struct's own where-clause,
+        // so a generic struct does not have to declare them itself. Types without type parameters
+        // keep exactly the where-clause they were written with (plus the bounds on flattened
+        // fields that `Schema::columns` calls into).
+        let has_type_params = generics.type_params().next().is_some();
+
+        // `Schema: Send` and `NoId: Send` are supertraits, so the impls only apply when the
+        // instantiated struct is `Send`.
+        let self_send: Option<syn::WherePredicate> =
+            has_type_params.then(|| syn::parse_quote!(#ident #struct_ty_gen: ::core::marker::Send));
+
+        let schema_generics = into_row::generics_with_predicates(
+            generics,
+            column_preds.into_iter().chain(self_send.clone()),
+        );
+        let schema_wc = where_tokens(&schema_generics);
+
+        let no_id_wc = where_tokens(&into_row::generics_with_predicates(generics, self_send));
+
+        // `HasId::Id: Clone + Send + Sync`, and `HasId::id` clones the id field.
+        let id_wc = where_tokens(&into_row::generics_with_predicates(
+            generics,
+            id_info.as_ref().filter(|_| has_type_params).map(
+                |IdInfo { id_ty, .. }| -> syn::WherePredicate {
+                    syn::parse_quote!(
+                        #id_ty: ::core::clone::Clone + ::core::marker::Send + ::core::marker::Sync
+                    )
+                },
+            ),
+        ));
 
         let (schema_columns_fn, id_impls) = match id_info {
             None => {
@@ -240,7 +281,7 @@ impl CrudlyParsed {
                     }
                 };
                 let extra = quote! {
-                    impl #struct_impl_gen ::crudly::NoId for #ident #struct_ty_gen #struct_wc {}
+                    impl #struct_impl_gen ::crudly::NoId for #ident #struct_ty_gen #no_id_wc {}
                 };
                 (columns_fn, extra)
             }
@@ -261,16 +302,16 @@ impl CrudlyParsed {
                 let marker_impl = match strategy {
                     IdStrategy::DbAssigned => quote! {
                         impl #struct_impl_gen ::crudly::DBAssignedId
-                            for #ident #struct_ty_gen #struct_wc {}
+                            for #ident #struct_ty_gen #id_wc {}
                     },
                     IdStrategy::External => quote! {
                         impl #struct_impl_gen ::crudly::ExternallyAssignedId
-                            for #ident #struct_ty_gen #struct_wc {}
+                            for #ident #struct_ty_gen #id_wc {}
                     },
                 };
 
                 let has_id_impl = quote! {
-                    impl #struct_impl_gen ::crudly::HasId for #ident #struct_ty_gen #struct_wc {
+                    impl #struct_impl_gen ::crudly::HasId for #ident #struct_ty_gen #id_wc {
                         type Id = #id_ty;
 
                         fn id_column() -> &'static str {
@@ -289,7 +330,7 @@ impl CrudlyParsed {
         };
 
         let schema_impl = quote! {
-            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #struct_wc {
+            impl #struct_impl_gen ::crudly::Schema for #ident #struct_ty_gen #schema_wc {
                 fn table_name() -> &'static str {
                     #table_lit
                 }
@@ -319,16 +360,18 @@ pub fn expand_derive_schema(input: DeriveInput) -> syn::Result<TokenStream> {
     };
 
     let mut column_fragments = Vec::new();
+    let mut column_preds = Vec::new();
     for field in &fields_named.named {
         let fa = into_row::parse_field_attrs(field)?;
         if fa.crudly_id {
             continue;
         }
+        column_preds.extend(into_row::has_columns_predicate_for_field(field, &fa, false));
         let sql_name = into_row::column_name_for_field(field, &fa, rename_all)?;
         column_fragments.push(into_row::schema_columns_tokens_for_field(
             field, &fa, &sql_name,
         )?);
     }
 
-    Ok(parsed.schema_and_marker_tokens(&column_fragments))
+    Ok(parsed.schema_and_marker_tokens(&column_fragments, column_preds))
 }

@@ -573,6 +573,42 @@ fn generics_with_crudly_db(input: &DeriveInput) -> syn::Generics {
     g
 }
 
+/// The struct's own generics with `preds` appended to its where-clause.
+///
+/// Generated impls carry the bounds their bodies need, so a generic struct does not have to repeat
+/// them on its definition and stays usable with type arguments that have no row mapping.
+pub(crate) fn generics_with_predicates(
+    generics: &syn::Generics,
+    preds: impl IntoIterator<Item = syn::WherePredicate>,
+) -> syn::Generics {
+    let mut g = generics.clone();
+    let mut seen: BTreeSet<String> = g
+        .where_clause
+        .iter()
+        .flat_map(|wc| wc.predicates.iter())
+        .map(|p| p.to_token_stream().to_string())
+        .collect();
+    for p in preds {
+        if seen.insert(p.to_token_stream().to_string()) {
+            g.make_where_clause().predicates.push(p);
+        }
+    }
+    g
+}
+
+/// `FieldTy: HasColumns` if the generated `columns()` body calls into this (flattened) field.
+pub(crate) fn has_columns_predicate_for_field(
+    field: &Field,
+    attrs: &FieldAttrs,
+    skip_id: bool,
+) -> Option<syn::WherePredicate> {
+    if attrs.skip || (skip_id && attrs.crudly_id) || !attrs.flatten {
+        return None;
+    }
+    let ty = &field.ty;
+    Some(parse_quote!(#ty: ::crudly::HasColumns))
+}
+
 pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
     let container = parse_container_attrs(&input)?;
     let rename_all = container.rename_all;
@@ -613,7 +649,13 @@ pub fn expand_derive_into_row(input: DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let ident = &input.ident;
-    let (hc_impl_generics, hc_ty_generics, hc_where_clause) = input.generics.split_for_impl();
+    let hc_generics = generics_with_predicates(
+        &input.generics,
+        parsed
+            .iter()
+            .filter_map(|(field, fa)| has_columns_predicate_for_field(field, fa, true)),
+    );
+    let (hc_impl_generics, hc_ty_generics, hc_where_clause) = hc_generics.split_for_impl();
 
     let has_columns_impl = quote! {
         impl #hc_impl_generics ::crudly::HasColumns for #ident #hc_ty_generics #hc_where_clause {
