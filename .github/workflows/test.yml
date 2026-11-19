@@ -16,6 +16,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 name: test
+# A compiler warning fails the build.
+env:
+  RUSTFLAGS: -D warnings
 jobs:
   required:
     runs-on: ubuntu-latest

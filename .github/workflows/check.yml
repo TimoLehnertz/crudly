@@ -99,6 +99,9 @@ jobs:
   hack:
     # cargo-hack checks combinations of feature flags to ensure that features are all additive
     # which is required for feature unification
+    # A compiler warning fails the build.
+    env:
+      RUSTFLAGS: -D warnings
     runs-on: ubuntu-latest
     name: ubuntu / stable / features
     steps:
@@ -119,6 +122,9 @@ jobs:
         run: cargo hack --feature-powerset check
   msrv:
     # check that we can build using the minimal rust version that is specified by this crate
+    # A compiler warning fails the build.
+    env:
+      RUSTFLAGS: -D warnings
     runs-on: ubuntu-latest
     # we use a matrix here just because env can't be used in job names
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
