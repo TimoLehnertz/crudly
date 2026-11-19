@@ -1,9 +1,9 @@
 use crate::sql::{FormatPlaceholder, RowsAffected, reusable_executor::ReusableExecutor};
 use crate::sql::{
-    format_placeholders, generic_delete_all, generic_delete_by_id, generic_id_exists,
-    generic_insert_many_with_id, generic_insert_many_without_id, generic_insert_with_id,
-    generic_insert_without_id, generic_select_all, generic_select_all_no_id, generic_select_by_id,
-    generic_select_by_ids, generic_update_by_id,
+    generic_delete_all, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
+    generic_insert_many_without_id, generic_insert_with_id, generic_insert_without_id,
+    generic_select_all, generic_select_all_no_id, generic_select_by_id, generic_select_by_ids,
+    generic_update_by_id, insert_one_row,
 };
 use crate::{
     CrudlyDefault, DBAssignedId, DeleteAll, DeleteById, ExternallyAssignedId, HasColumns, HasId,
@@ -33,20 +33,10 @@ where
     S: Schema + IntoRow<Postgres> + HasId + DBAssignedId,
 {
     let table_name = S::table_name();
-    let non_id_columns = <S as HasColumns>::columns();
-    let columns = non_id_columns
-        .iter()
-        .map(|c| format!("\"{c}\""))
-        .collect::<Vec<String>>()
-        .join(",");
-
+    let row = insert_one_row::<Postgres>(&<S as HasColumns>::columns());
     let id_column = S::id_column();
 
-    let placeholders = format_placeholders::<Postgres>(non_id_columns.len());
-
-    let sql = format!(
-        "INSERT INTO {table_name} ({columns}) VALUES ({placeholders}) RETURNING \"{id_column}\""
-    );
+    let sql = format!("INSERT INTO {table_name} {row} RETURNING \"{id_column}\"");
 
     let mut arguments = PgArguments::default();
     entity.bind_arguments(&mut arguments)?;

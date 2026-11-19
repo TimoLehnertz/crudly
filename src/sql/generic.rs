@@ -16,6 +16,12 @@ pub trait FormatPlaceholder {
     /// # Arguments
     /// - `idx`: The index of the placeholder starting at 0
     fn format_placeholder(idx: usize) -> String;
+
+    /// What follows `INSERT INTO <table>` for a row that sets no column, so that every column
+    /// takes its default.
+    fn insert_defaults() -> &'static str {
+        "DEFAULT VALUES"
+    }
 }
 
 pub trait RowsAffected {
@@ -33,6 +39,21 @@ pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
         .map(|idx| DB::format_placeholder(idx))
         .collect::<Vec<String>>()
         .join(",")
+}
+
+/// What follows `INSERT INTO <table>` for one row of `columns`: the quoted column list and one
+/// placeholder each, or [`FormatPlaceholder::insert_defaults`] if there is no column to set.
+pub(super) fn insert_one_row<DB: FormatPlaceholder>(columns: &[&str]) -> String {
+    if columns.is_empty() {
+        return DB::insert_defaults().to_string();
+    }
+    let quoted = columns
+        .iter()
+        .map(|c| format!("\"{c}\""))
+        .collect::<Vec<String>>()
+        .join(",");
+    let placeholders = format_placeholders::<DB>(columns.len());
+    format!("({quoted}) VALUES ({placeholders})")
 }
 
 /// # Returns
@@ -230,16 +251,9 @@ where
     <DB as Database>::Arguments: IntoArguments<DB>,
 {
     let table_name = S::table_name();
-    let non_id_columns = <S as HasColumns>::columns();
-    let columns = non_id_columns
-        .iter()
-        .map(|c| format!("\"{c}\""))
-        .collect::<Vec<String>>()
-        .join(",");
+    let row = insert_one_row::<DB>(&<S as HasColumns>::columns());
 
-    let placeholders = format_placeholders::<DB>(non_id_columns.len());
-
-    let sql = format!("INSERT INTO {table_name} ({columns}) VALUES ({placeholders})");
+    let sql = format!("INSERT INTO {table_name} {row}");
 
     let mut arguments = DB::Arguments::default();
     entity.bind_arguments(&mut arguments)?;
@@ -291,6 +305,17 @@ where
         .join(",");
 
     let cols_per_row = non_id_columns.len();
+
+    // A statement that sets no column inserts one row, so such rows go one statement each.
+    if cols_per_row == 0 {
+        let sql = format!("INSERT INTO {table_name} {}", DB::insert_defaults());
+        for _ in entities {
+            executor
+                .execute_query_with(AssertSqlSafe(sql.clone()), DB::Arguments::default())
+                .await?;
+        }
+        return Ok(());
+    }
 
     let mut rest = entities;
 
@@ -422,7 +447,6 @@ where
 
     let mut set_sql = String::new();
 
-    // columns are expected not to be empty
     for (idx, column) in <S as HasColumns>::columns().iter().enumerate() {
         if idx > 0 {
             set_sql.push(',');
@@ -431,6 +455,10 @@ where
             "\"{column}\"={placeholder}",
             placeholder = DB::format_placeholder(idx)
         ));
+    }
+    // Without a column to set, the statement only reports whether the row exists.
+    if set_sql.is_empty() {
+        set_sql = format!("{id_column} = {id_column}");
     }
 
     let entity_id = entity.id();

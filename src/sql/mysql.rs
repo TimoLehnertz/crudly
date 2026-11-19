@@ -21,6 +21,10 @@ impl FormatPlaceholder for MySql {
     fn format_placeholder(_idx: usize) -> String {
         "?".to_string()
     }
+
+    fn insert_defaults() -> &'static str {
+        "() VALUES ()"
+    }
 }
 
 impl RowsAffected for MySqlQueryResult {
