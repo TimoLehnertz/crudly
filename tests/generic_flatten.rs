@@ -28,8 +28,8 @@ fn the_traits_are_implemented_when_the_type_argument_has_columns() {
     assert_eq!(<Shelf<Kite> as HasId>::id_column(), "id");
 }
 
-/// With a type argument that has no columns the struct is still a struct. That it then implements
-/// neither `Schema` nor `HasColumns` is the `compile_fail` example in the crate docs.
+/// With a type argument that has no columns the struct is still a struct, without `Schema` or
+/// `HasColumns`.
 #[test]
 fn a_type_argument_without_columns_leaves_a_plain_struct() {
     let shelf = Shelf {
