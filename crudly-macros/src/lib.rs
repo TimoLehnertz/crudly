@@ -21,11 +21,6 @@ use syn::parse_macro_input;
 /// If `try_from` / `try_into` target type is `String`, the expansion calls [`ToString::to_string`] on the
 /// field and binds that `String` (otherwise it uses [`TryInto`] to the given type).
 /// Enable the `json` feature on `crudly` / `crudly-macros` to expand `json` attributes.
-///
-/// Generic structs: the generated impls carry the bounds they need (e.g. `Field: HasColumns` and
-/// `Field: IntoRow<__CrudlyDb>` for a flattened field), in addition to the struct's own where-clause.
-/// The struct does not have to declare them and can be instantiated with type arguments that have
-/// no row mapping, in which case it simply does not implement the traits.
 #[proc_macro_derive(IntoRow, attributes(crudly, sqlx))]
 pub fn derive_into_row(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
@@ -44,10 +39,6 @@ pub fn derive_into_row(input: TokenStream) -> TokenStream {
 ///
 /// Container `#[crudly(...)]`: `table`, `db_ids` (default when id field present), `external_ids`.
 /// `db_ids` / `external_ids` require a `#[crudly(id)]` field to be present.
-///
-/// Generic structs: the generated impls carry the bounds they need in addition to the struct's own
-/// where-clause: `Schema` requires `HasColumns` for every flattened field and the struct to be
-/// `Send`, `HasId` (and the id marker trait) require the id type to be `Clone + Send + Sync`.
 #[proc_macro_derive(Schema, attributes(crudly))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
