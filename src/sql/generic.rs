@@ -9,10 +9,12 @@ use sqlx::{
     query_with,
 };
 
-/// There is a similar function here: [sqlx::Arguments::format_placeholder] but thats
-/// only really usable via the [sqlx::QueryBuilder] which is highly
-/// undocumented and does not seem to be of great use here.
-pub trait FormatPlaceholder {
+/// What differs between the databases in the SQL that the query builders write.
+pub trait SqlDialect {
+    /// There is a similar function here: [sqlx::Arguments::format_placeholder] but thats
+    /// only really usable via the [sqlx::QueryBuilder] which is highly
+    /// undocumented and does not seem to be of great use here.
+    ///
     /// # Arguments
     /// - `idx`: The index of the placeholder starting at 0
     fn format_placeholder(idx: usize) -> String;
@@ -34,7 +36,7 @@ pub trait LastInsertedRowId {
 
 /// # Returns
 /// A string of `n` placeholders separated by commas.
-pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
+pub(super) fn format_placeholders<DB: SqlDialect>(n: usize) -> String {
     (0..n)
         .map(|idx| DB::format_placeholder(idx))
         .collect::<Vec<String>>()
@@ -42,8 +44,8 @@ pub(super) fn format_placeholders<DB: FormatPlaceholder>(n: usize) -> String {
 }
 
 /// What follows `INSERT INTO <table>` for one row of `columns`: the quoted column list and one
-/// placeholder each, or [`FormatPlaceholder::insert_defaults`] if there is no column to set.
-pub(super) fn insert_one_row<DB: FormatPlaceholder>(columns: &[&str]) -> String {
+/// placeholder each, or [`SqlDialect::insert_defaults`] if there is no column to set.
+pub(super) fn insert_one_row<DB: SqlDialect>(columns: &[&str]) -> String {
     if columns.is_empty() {
         return DB::insert_defaults().to_string();
     }
@@ -118,7 +120,7 @@ pub async fn generic_select_by_id<S, DB>(
     id: &S::Id,
 ) -> sqlx::Result<Option<S>>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     <DB as Database>::Arguments: IntoArguments<DB>,
@@ -142,7 +144,7 @@ pub async fn generic_select_by_ids<S, DB>(
     batch_size: usize,
 ) -> sqlx::Result<Vec<S>>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId + for<'r> FromRow<'r, DB::Row> + Unpin,
     <DB as Database>::Arguments: IntoArguments<DB>,
@@ -196,7 +198,7 @@ pub async fn generic_id_exists<S, DB>(
     id: &S::Id,
 ) -> sqlx::Result<bool>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId,
     <DB as Database>::Arguments: IntoArguments<DB>,
@@ -220,7 +222,7 @@ pub async fn generic_insert_with_id<S, DB>(
     entity: S,
 ) -> sqlx::Result<()>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + IntoRow<DB> + HasId,
     <DB as Database>::Arguments: IntoArguments<DB>,
@@ -246,7 +248,7 @@ pub async fn generic_insert_without_id<S, DB>(
     entity: S,
 ) -> sqlx::Result<DB::QueryResult>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S: Schema + IntoRow<DB>,
     <DB as Database>::Arguments: IntoArguments<DB>,
 {
@@ -268,7 +270,7 @@ pub async fn generic_insert_returning_id<S, DB>(
     entity: S,
 ) -> sqlx::Result<i64>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     DB::QueryResult: LastInsertedRowId,
     S: Schema + IntoRow<DB>,
     <DB as Database>::Arguments: IntoArguments<DB>,
@@ -288,7 +290,7 @@ pub async fn generic_insert_many_without_id<S, DB, E>(
 ) -> sqlx::Result<()>
 where
     E: ReusableExecutor<DB>,
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S: Schema + IntoRow<DB>,
     <DB as Database>::Arguments: IntoArguments<DB>,
 {
@@ -371,7 +373,7 @@ pub async fn generic_insert_many_with_id<'c, S, DB, E>(
 where
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     E: ReusableExecutor<DB> + Send,
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     S: Schema + IntoRow<DB> + HasId,
     <DB as Database>::Arguments: IntoArguments<DB>,
 {
@@ -436,7 +438,7 @@ pub async fn generic_update_by_id<S, DB>(
     entity: S,
 ) -> sqlx::Result<bool>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + IntoRow<DB> + HasId,
@@ -485,7 +487,7 @@ pub async fn generic_delete_by_id<S, DB>(
     id: &S::Id,
 ) -> sqlx::Result<bool>
 where
-    DB: Database + FormatPlaceholder,
+    DB: Database + SqlDialect,
     DB::QueryResult: RowsAffected,
     S::Id: for<'q> Encode<'q, DB> + Type<DB>,
     S: Schema + HasId,

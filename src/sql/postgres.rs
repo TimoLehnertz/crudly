@@ -1,4 +1,4 @@
-use crate::sql::{FormatPlaceholder, RowsAffected, reusable_executor::ReusableExecutor};
+use crate::sql::{RowsAffected, SqlDialect, reusable_executor::ReusableExecutor};
 use crate::sql::{
     generic_delete_all, generic_delete_by_id, generic_id_exists, generic_insert_many_with_id,
     generic_insert_many_without_id, generic_insert_with_id, generic_insert_without_id,
@@ -15,7 +15,7 @@ use sqlx::postgres::{PgArguments, PgQueryResult, PgRow};
 use sqlx::{AssertSqlSafe, Encode, Executor, FromRow, Postgres, Type, query_scalar_with};
 use std::future::Future;
 
-impl FormatPlaceholder for Postgres {
+impl SqlDialect for Postgres {
     fn format_placeholder(idx: usize) -> String {
         format!("${}", idx + 1)
     }

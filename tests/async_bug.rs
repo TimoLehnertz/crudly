@@ -1,4 +1,4 @@
-use crudly::sql::{FormatPlaceholder, LastInsertedRowId, generic_insert_returning_id};
+use crudly::sql::{LastInsertedRowId, SqlDialect, generic_insert_returning_id};
 use crudly::{
     CrudlyDefault, DeleteById, IdExists, Insert, InsertWithoutId, IntoRow, Schema, SelectAll,
     SelectById, UpdateById,
@@ -15,7 +15,7 @@ struct Bar {
 
 impl<DB: Database> Foo<DB> for Bar
 where
-    DB: FormatPlaceholder,
+    DB: SqlDialect,
     DB::QueryResult: LastInsertedRowId,
     <DB as Database>::Arguments: IntoArguments<DB>,
     for<'q> std::string::String: sqlx::Encode<'q, DB>,
